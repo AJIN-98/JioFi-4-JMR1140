@@ -30,6 +30,7 @@ Pick the path that matches what you want from the device. Every image below is *
 | Get a permanent **root ADB shell** over USB (no other changes) | [`patched/mdm9607-sysfs-adb-shelllink-v2.ubi`](patched/README.md#mdm9607-sysfs-adb-shelllink-v2ubi) | [`patched/README.md`](patched/README.md) |
 | **Use any carrier's SIM** (Airtel, Vi, BSNL, …) *and* get root ADB | [`patched/mdm9607-sysfs-unlocked-apn-adb.ubi`](patched/README.md#mdm9607-sysfs-unlocked-apn-adbubi) | The APN-carrier section of [`patched/README.md`](patched/README.md) — **⚠️ experimental, testers wanted (see callout below)** |
 | **Turn the JioFi into a Wi-Fi Extender/Repeater** *and* keep root ADB | [`patched/mdm9607-sysfs-repeater-patched.ubi`](patched/README.md#mdm9607-sysfs-repeater-patchedubi) | The full repeater write-up in [`patched/README.md`](patched/README.md) |
+| Get **Root Web Terminal** (`http://192.168.225.1/terminal.html`), battery monitor, ADB, and BusyBox via **Web Panel ZIP** (No PC tools needed) | [`zip_update/jiofi_web_terminal_update.zip`](zip_update/README.md) | [`zip_update/README.md`](zip_update/README.md) |
 
 Each image's SHA-256, what changes are baked in, and what to expect after flashing are documented in **[`patched/patch.md`](patched/patch.md)**.
 
@@ -118,6 +119,10 @@ Each document below covers one specific audience and topic — start from the on
 | **[`Device.md`](Device.md)** | Anyone preparing to flash | Hardware & software specifications — MDM9607 SoC, ARM Cortex-A7 @ 1.3 GHz, 256 MB DDR, 256 MB raw NAND, UBI volumes, supported LTE bands (3/5/40), external interfaces (Micro USB + Nano SIM + Micro SD), battery 2 600 mAh. |
 | **[`DRIVER_BUILD.md`](DRIVER_BUILD.md)** | Driver / kernel developer | Custom `rtl8189es` driver: why a custom build is required, the three Qualcomm kernel-offset corrections, how to rebuild, how to `insmod` and validate. |
 | **[`REVERSE_ENGINEERING.md`](REVERSE_ENGINEERING.md)** | Researcher / curious reader | Static + dynamic analysis log: USB composition internals, AT-command ADB unlock, AP+STA double-interface routing, battery/LED telemetry reverse engineering, EDL recovery. |
+| **[`ENGINEER_MODES.md`](ENGINEER_MODES.md)** | Advanced user / modder | Hidden developer features, LTE Band 40/3 lock console commands, in-system AT commands, SMS send/read utilities, TCP Port 6666 baseband server, Web UI privilege tiers, and JioCall architecture. |
+| **[`zip_update/README.md`](zip_update/README.md)** | Web Flasher / AI Agent / Modder | Packaging & flashing custom ZIP updates through the stock router Web Panel (`jiofi_web_terminal_update.zip`, `pack_update_zip.py`, and the 7 Golden Rules for ZIP packaging). |
+| **[`jiofi_sms.py`](jiofi_sms.py)** | CLI tool | Standalone Python utility to list, read, send, and delete SMS via Qualcomm baseband AT commands (`/dev/ttyUSB1`). |
+
 
 ---
 

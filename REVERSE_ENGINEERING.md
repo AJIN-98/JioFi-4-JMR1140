@@ -103,3 +103,26 @@ Because official AMTelecom links are delisted:
   * **[JMR1140 Drivers and Flasher Tools (MediaFire)](https://www.mediafire.com/file/wr5t5xmtph4bobb/JioWiFi.rar)**
 * **Modem Backups & EDL recovery**: 
   * **To dump/backup stock partitions**: Enable temporary ADB via serial COM AT command line injection (`AT%DBGMODE=1` & `AT%DBGUSBSET=1`), then boot the device into EDL mode by running `adb reboot edl`. You can then dump/read your partitions using QPST/QFIL or open-source QDL tools.
+
+## 6. JMR1140 SIM-Lock Investigation
+
+`firmware/contents_9x07.xml` identifies `NON-HLOS.ubi` as the modem partition; it is
+separate from `mdm9607-sysfs.ubi`, which is only the Linux system partition. The
+modem UBI contains a split Qualcomm Hexagon/QDSP6 ELF (`modem.mdt` plus
+`modem.b00`–`modem.b24`). Static analysis found the following relevant code and
+strings in the modem image:
+
+* `mmgsdi_card_init.c` contains Jio-specific MCC/MNC checks and the
+  `amt_mmgsdi_card_type_check` path.
+* The modem also contains `simlock`, `policyman`, and subscription-personalization
+  code, so changing the Linux APN/UI cannot by itself remove a baseband lock.
+* `NV_GPRS_ANITE_GCF_I` (NV item 947) is the Qualcomm Anite GCF test flag. It is
+  not a network-unlock flag; changing it is not a valid SIM-unlock method.
+
+The modem ELF is stripped and has no section/symbol table. A QDSP6 decoder can
+disassemble it, but the exact carrier decision branch has not yet been proven
+safe to patch. The original `firmware/NON-HLOS.ubi` must therefore remain
+untouched until a branch-level patch is validated and the UBI is repacked with
+the original geometry. The current `unlock_jiofi4.py` intentionally performs
+diagnostics and accepts a legitimate NCK only; it does not write guessed modem
+NV values.

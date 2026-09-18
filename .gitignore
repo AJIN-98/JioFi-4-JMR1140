@@ -46,3 +46,7 @@ Thumbs.db
 .idea/
 
 firmware_reverse_engineering
+
+__pycache__
+scratch
+com.jio.join_5.1.1-5010103_minAPI16(armeabi-v7a)(nodpi)_apkmirror.com.apk
