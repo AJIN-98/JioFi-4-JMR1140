@@ -1,5 +1,5 @@
 #!/bin/sh
-# CGI status script for JioFi Repeater Web UI
+# CGI status script for OpenFi Repeater Web UI
 echo "Content-type: application/json"
 echo ""
 
@@ -28,8 +28,6 @@ if [ ! -f "$HOSTAP_CONF" ]; then
     HOSTAP_CONF="/etc/hostapd.conf"
 fi
 AP_SSID=$(grep "^ssid=" "$HOSTAP_CONF" | cut -d= -f2)
-AP_PASS=$(grep "^wpa_passphrase=" "$HOSTAP_CONF" | cut -d= -f2)
-
 # Load IP configuration settings
 IP_MODE="dhcp"
 IP_ADDR=""
@@ -39,56 +37,21 @@ if [ -f "/data/ip_config.conf" ]; then
     . /data/ip_config.conf
 fi
 
-# --- Battery & Charger Telemetry ---
-BATT_LEVEL=""
-BATT_STATUS=""
-
-# Read battery capacity from qpnp-vadc-8/vbatt
-R=$(cat /sys/devices/qpnp-vadc-8/vbatt 2>/dev/null | grep -o 'Result:[0-9]*' | cut -d: -f2)
-if [ -n "$R" ]; then
-    # V is actual millivolts (scaled Result * 3 / 1000)
-    V=$(( R * 3 / 1000 ))
-    
-    # If voltage is below 2000mV, the battery is physically removed
-    if [ $V -lt 2000 ]; then
-        BATT_LEVEL=0
-        BATT_STATUS="No Battery (USB Powered)"
-    else
-        # Battery voltage range: 3400mV (0%) to 4200mV (100%)
-        if [ $V -ge 4200 ]; then
-            BATT_LEVEL=100
-        elif [ $V -le 3400 ]; then
-            BATT_LEVEL=0
-        else
-            BATT_LEVEL=$(( (V - 3400) * 100 / 800 ))
-        fi
-    fi
-fi
-
-# Determine battery status if battery is present
-if [ -z "$BATT_STATUS" ]; then
-    BATT_STATUS=$(cat /sys/class/power_supply/sy6923-charger/status 2>/dev/null)
-    USB_ONLINE=$(cat /sys/class/power_supply/usb/online 2>/dev/null)
-    
-    if [ "$BATT_STATUS" = "Unknown" ] || [ -z "$BATT_STATUS" ]; then
-        if [ "$USB_ONLINE" = "1" ]; then
-            if [ -n "$BATT_LEVEL" ] && [ "$BATT_LEVEL" -ge 95 ]; then
-                BATT_STATUS="Full"
-            else
-                BATT_STATUS="Charging"
-            fi
-        else
-            BATT_STATUS="Discharging"
-        fi
-    fi
-fi
+. /usr/lib/repeater_battery.sh
+repeater_battery_read
 
 if [ -z "$BATT_LEVEL" ]; then
     BATT_LEVEL="100"
 fi
-if [ -z "$BATT_STATUS" ]; then
-    BATT_STATUS="Battery Present"
-fi
+UPTIME_SECONDS=$(awk '{printf "%d", $1}' /proc/uptime 2>/dev/null)
+[ -n "$UPTIME_SECONDS" ] || UPTIME_SECONDS=0
+MEMORY_KB=$(awk '/^MemAvailable:/ { print $2; found=1; exit } /^MemFree:/ { free=$2 } END { if (!found) print free+0 }' /proc/meminfo 2>/dev/null)
+MEMORY_MB=$(( ${MEMORY_KB:-0} / 1024 ))
+APPLY_STATE=$(cat /data/repeater_apply.status 2>/dev/null)
+case "$APPLY_STATE" in
+    restart_pending|restarting|complete|failed) ;;
+    *) APPLY_STATE="idle" ;;
+esac
 
 # --- Client Details (wlan1 associated stations) ---
 # Get associated stations from hostapd to show only active connected clients
@@ -118,4 +81,4 @@ if [ -f "$LEASE_FILE" ]; then
     done < "$LEASE_FILE"
 fi
 
-echo "{\"connected\":$CONNECTED,\"ssid\":\"$SSID\",\"signal\":$SIGNAL,\"ip\":\"$IP\",\"ap_ssid\":\"$AP_SSID\",\"ap_pass\":\"$AP_PASS\",\"ip_mode\":\"$IP_MODE\",\"ip_addr\":\"$IP_ADDR\",\"netmask\":\"$NETMASK\",\"gateway\":\"$GATEWAY\",\"batt_level\":$BATT_LEVEL,\"batt_status\":\"$BATT_STATUS\",\"clients\":[$CLIENTS]}"
+echo "{\"connected\":$CONNECTED,\"ssid\":\"$SSID\",\"signal\":$SIGNAL,\"ip\":\"$IP\",\"ap_ssid\":\"$AP_SSID\",\"ip_mode\":\"$IP_MODE\",\"ip_addr\":\"$IP_ADDR\",\"netmask\":\"$NETMASK\",\"gateway\":\"$GATEWAY\",\"batt_level\":$BATT_LEVEL,\"batt_status\":\"$BATT_STATUS\",\"uptime_seconds\":$UPTIME_SECONDS,\"memory_available\":\"${MEMORY_MB} MB\",\"apply_state\":\"$APPLY_STATE\",\"clients\":[$CLIENTS]}"

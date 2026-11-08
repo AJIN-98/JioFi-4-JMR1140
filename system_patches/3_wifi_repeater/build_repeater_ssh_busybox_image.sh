@@ -10,7 +10,7 @@
 #   - Battery LED manager (charging blink, discharge colour, white idle)
 #
 # Does NOT include:
-#   - WPS Wake-on-LAN listener (personal_builds only)
+#   - WPS Wake-on-LAN listener (separate from the physical WPS button handler)
 #   - Battery LED manager (personal_builds only)
 #   - Blank root password (set BLANK_ROOT_PASSWORD=1 to enable)
 #
@@ -91,7 +91,13 @@ fakeroot -i "$STATE_DB" -s "$STATE_DB" -- sh -c '
   chmod 755 "$RD/www/cgi-bin/status"
   chmod 755 "$RD/www/cgi-bin/reboot"
   chmod 755 "$RD/www/cgi-bin/scan"
+  chmod 755 "$RD/www/cgi-bin/users"
+  chmod 755 "$RD/usr/lib/repeater_auth.sh"
+  chmod 755 "$RD/usr/bin/repeater_buttons"
   chmod 755 "$RD/sbin/usb/compositions/02e1"
+  chown 0:0 "$RD/www/cgi-bin/users"
+  chown 0:0 "$RD/usr/lib/repeater_auth.sh"
+  chown 0:0 "$RD/usr/bin/repeater_buttons"
   chown 0:0 "$RD/etc/init.d/start_repeater"
   chown 0:0 "$RD/etc/init.d/start_QCMAP_Web_CLIENT_le"
   chown 0:0 "$RD/etc/init.d/start_QCMAP_ConnectionManager_le"
@@ -101,6 +107,7 @@ fakeroot -i "$STATE_DB" -s "$STATE_DB" -- sh -c '
   cp "$SSH_PATCH/binaries/busybox" "$RD/bin/busybox"
   chmod 755 "$RD/bin/busybox"
   chown 0:0 "$RD/bin/busybox"
+  ln -sf /bin/busybox "$RD/sbin/httpd"
   echo "  [+] Busybox 1.31.0 installed."
 
   # ── C. Dropbear SSH ──────────────────────────────────────────────────────

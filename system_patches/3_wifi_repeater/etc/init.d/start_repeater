@@ -1,6 +1,8 @@
 #!/bin/sh
 # /etc/init.d/start_repeater
-# JioFi 4 AP+STA Wi-Fi Repeater Startup Script
+# OpenFi 4 AP+STA Wi-Fi Repeater Startup Script
+
+. /usr/lib/repeater_battery.sh
 
 set_led_brightness() {
     LED_NAME="$1"
@@ -13,12 +15,69 @@ set_led_brightness() {
     fi
 }
 
+ensure_wps_config() {
+    CONFIG="$1"
+    if grep -q '^ssid=JioFi_Repeater$' "$CONFIG" 2>/dev/null; then
+        sed 's/^ssid=JioFi_Repeater$/ssid=OpenFi_Repeater/' "$CONFIG" > "$CONFIG.$$" &&
+            mv "$CONFIG.$$" "$CONFIG"
+    fi
+    for setting in \
+        "eap_server=1" \
+        "wps_state=2" \
+        "ap_setup_locked=0" \
+        "device_name=OpenFi Repeater" \
+        "manufacturer=Jio" \
+        "model_name=JMR1140" \
+        "model_number=1" \
+        "serial_number=JMR1140" \
+        "config_methods=push_button" \
+        "uuid=8d7f0d7b-8b5a-4f2e-9f4f-4d4a494f4649"
+    do
+        KEY=${setting%%=*}
+        grep -q "^${KEY}=" "$CONFIG" 2>/dev/null || echo "$setting" >> "$CONFIG"
+    done
+}
+
+reset_settings_for_firmware_upgrade() {
+    VERSION_FILE="/etc/openfi-repeater-version"
+    DATA_VERSION="/data/openfi-repeater-version"
+    CURRENT_VERSION=$(cat "$VERSION_FILE" 2>/dev/null)
+    if [ -z "$CURRENT_VERSION" ]; then
+        echo "OpenFi settings reset skipped: firmware version marker is missing" > /dev/kmsg
+        return 1
+    fi
+
+    PREVIOUS_VERSION=$(cat "$DATA_VERSION" 2>/dev/null)
+    [ "$PREVIOUS_VERSION" != "$CURRENT_VERSION" ] || return 0
+
+    echo "OpenFi firmware version changed; restoring default Wi-Fi and account settings" > /dev/kmsg
+    rm -f \
+        /data/wpa_supplicant.conf \
+        /data/hostapd.conf \
+        /data/ip_config.conf \
+        /data/repeater_users.db \
+        /data/repeater-httpd.conf
+    if [ "$?" -ne 0 ]; then
+        echo "OpenFi settings reset failed while removing saved configuration" > /dev/kmsg
+        return 1
+    fi
+    rmdir /data/repeater-auth.lock /data/repeater-reboot.lock 2>/dev/null || true
+
+    VERSION_TEMP="$DATA_VERSION.$$"
+    if ! printf '%s\n' "$CURRENT_VERSION" > "$VERSION_TEMP" || ! mv "$VERSION_TEMP" "$DATA_VERSION"; then
+        rm -f "$VERSION_TEMP"
+        echo "OpenFi settings reset failed while saving firmware version" > /dev/kmsg
+        return 1
+    fi
+}
+
 case "$1" in
   start)
-    echo "=== Starting JioFi Wi-Fi Repeater ==="
-    
-    # Kill conflicting OEM UI manager to free up LEDs and button overrides
-    killall uiapp 2>/dev/null
+    if ! reset_settings_for_firmware_upgrade; then
+        exit 1
+    fi
+    rmdir /data/repeater-reboot.lock 2>/dev/null
+    echo "=== Starting OpenFi Wi-Fi Repeater ==="
     
     # 1. Redirect blocking /dev/random to non-blocking /dev/urandom
     rm -f /dev/random
@@ -45,6 +104,7 @@ case "$1" in
     if [ -f "/data/hostapd.conf" ]; then
         HOSTAPD_CONF="/data/hostapd.conf"
     fi
+    ensure_wps_config "$HOSTAPD_CONF"
     
     # 6. Start wpa_supplicant on wlan0
     killall wpa_supplicant 2>/dev/null
@@ -94,7 +154,12 @@ case "$1" in
     
     # 11. Start lightweight HTTP server for Repeater Web UI
     killall httpd 2>/dev/null
-    /sbin/httpd -h /www
+    if /bin/sh /usr/lib/repeater_auth.sh init; then
+        /sbin/httpd -h /www -c /data/repeater-httpd.conf
+    else
+        echo "Repeater web server not started: authentication setup failed" > /dev/kmsg
+    fi
+    echo complete > /data/repeater_apply.status
     
     # 12. Start background LED indicator manager
     (
@@ -104,8 +169,16 @@ case "$1" in
         echo none > /sys/class/leds/wifi_r/trigger 2>/dev/null
         echo none > /sys/class/leds/wifi_g/trigger 2>/dev/null
         echo none > /sys/class/leds/wifi_b/trigger 2>/dev/null
+        LAST_BATTERY_LED_STATE=""
         
         while true; do
+            repeater_battery_read
+            BATTERY_LED_STATE=$(repeater_battery_led_state "$BATT_STATUS" "$BATT_LEVEL")
+            if [ "$BATTERY_LED_STATE" != "$LAST_BATTERY_LED_STATE" ]; then
+                repeater_battery_set_power_led "$BATT_STATUS" "$BATT_LEVEL"
+                LAST_BATTERY_LED_STATE="$BATTERY_LED_STATE"
+            fi
+
             # --- Update RSSI LED (Upstream wlan0 connection quality) ---
             IP=$(ifconfig wlan0 2>/dev/null | grep 'inet addr:')
             if [ -n "$IP" ]; then
@@ -186,7 +259,6 @@ case "$1" in
                 (
                     echo "Re-initializing repeater interfaces on wake-up..." > /dev/kmsg
                     # Unload and kill services
-                    killall uiapp 2>/dev/null
                     killall hostapd 2>/dev/null
                     killall wpa_supplicant 2>/dev/null
                     killall udhcpc 2>/dev/null
@@ -240,14 +312,21 @@ case "$1" in
     ) &
     echo $! > /var/run/repeater_watchdog.pid
 
-    echo "=== JioFi Repeater is Active ==="
+    if [ -x /usr/bin/repeater_buttons ]; then
+        /usr/bin/repeater_buttons >/dev/null 2>&1 &
+        echo $! > /var/run/repeater_buttons.pid
+    fi
+
+    echo "=== OpenFi Repeater is Active ==="
     ;;
   stop)
-    echo "Stopping JioFi Wi-Fi Repeater"
+    echo "Stopping OpenFi Wi-Fi Repeater"
     kill $(cat /var/run/repeater_leds.pid 2>/dev/null) 2>/dev/null
     rm -f /var/run/repeater_leds.pid
     kill $(cat /var/run/repeater_watchdog.pid 2>/dev/null) 2>/dev/null
     rm -f /var/run/repeater_watchdog.pid
+    kill $(cat /var/run/repeater_buttons.pid 2>/dev/null) 2>/dev/null
+    rm -f /var/run/repeater_buttons.pid
     
     # Turn off RSSI and Wi-Fi LEDs on stop
     echo none > /sys/class/leds/rssi_r/trigger 2>/dev/null

@@ -1,10 +1,18 @@
 #!/bin/sh
-# CGI reboot script for JioFi Repeater Web UI
+# CGI reboot script for OpenFi Repeater Web UI
+
+. /usr/lib/repeater_auth.sh
+auth_require_admin
+
+if [ "$REQUEST_METHOD" != "POST" ]; then
+    auth_json_error 400 "POST is required"
+fi
+
 echo "Content-type: application/json"
 echo ""
 
 (
-    sleep 2
+    sleep 5
     /sbin/reboot
 ) &
 

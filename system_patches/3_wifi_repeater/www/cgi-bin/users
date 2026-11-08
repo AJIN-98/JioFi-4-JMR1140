@@ -1,0 +1,100 @@
+#!/bin/sh
+
+. /usr/lib/repeater_auth.sh
+
+REQUEST_METHOD=${REQUEST_METHOD:-GET}
+if [ "$REQUEST_METHOD" = "GET" ]; then
+    echo "Content-type: application/json"
+    echo ""
+    ROLE=$(auth_role)
+    if [ "$ROLE" = "admin" ]; then
+        USERS=""
+        while IFS=: read -r username role hash; do
+            [ -n "$username" ] || continue
+            [ -n "$USERS" ] && USERS="$USERS,"
+            [ "$role" = "readonly" ] && role="user"
+            USERS="${USERS}{\"username\":\"$username\",\"role\":\"$role\"}"
+        done < "$AUTH_DB"
+        printf '{"success":true,"is_admin":true,"users":[%s]}\n' "$USERS"
+    elif [ "$ROLE" = "user" ]; then
+        echo '{"success":true,"is_admin":false,"role":"user","users":[]}'
+    else
+        echo '{"success":false,"error":"Account is not active"}'
+    fi
+    exit 0
+fi
+
+[ "$REQUEST_METHOD" = "POST" ] || auth_json_error 400 "POST is required"
+[ "$CONTENT_TYPE" = "application/json" ] || auth_json_error 400 "application/json is required"
+case "$CONTENT_LENGTH" in
+    ""|*[!0-9]*) auth_json_error 400 "Invalid request size" ;;
+esac
+[ "$CONTENT_LENGTH" -gt 2048 ] && auth_json_error 400 "Invalid request size"
+[ "$CONTENT_LENGTH" -gt 0 ] || auth_json_error 400 "Invalid request size"
+
+DATA=$(head -c "$CONTENT_LENGTH")
+ACTION=$(printf '%s' "$DATA" | grep -o '"action":"[^"]*' | cut -d'"' -f4)
+USERNAME=$(printf '%s' "$DATA" | grep -o '"username":"[^"]*' | cut -d'"' -f4)
+PASSWORD=$(printf '%s' "$DATA" | grep -o '"password":"[^"]*' | cut -d'"' -f4)
+
+auth_require_admin
+mkdir /data/repeater-auth.lock 2>/dev/null || auth_json_error 409 "Another account change is in progress"
+trap 'rmdir /data/repeater-auth.lock 2>/dev/null' EXIT HUP INT TERM
+
+TEMP_DB="$AUTH_DB.$$"
+cp "$AUTH_DB" "$TEMP_DB" || auth_json_error 500 "Unable to update account database"
+
+case "$ACTION" in
+    add_user|add_readonly)
+        auth_valid_username "$USERNAME" || auth_json_error 400 "Use a 1-32 character username with letters, digits, dot, underscore, or hyphen"
+        [ "$USERNAME" != "admin" ] || auth_json_error 400 "The admin account name is reserved"
+        auth_valid_password "$PASSWORD" || auth_json_error 400 "Password must be 1-64 printable characters without quotes or backslashes"
+        if awk -F: -v user="$USERNAME" '$1 == user { found=1 } END { exit !found }' "$AUTH_DB"; then
+            auth_json_error 409 "That username already exists"
+        fi
+        COUNT=$(awk -F: '$2 == "user" || $2 == "readonly" { count++ } END { print count+0 }' "$AUTH_DB")
+        [ "$COUNT" -lt 16 ] || auth_json_error 409 "The maximum number of user accounts has been reached"
+        HASH=$(auth_password_hash "$PASSWORD") || auth_json_error 500 "Unable to hash password"
+        printf '%s:user:%s\n' "$USERNAME" "$HASH" >> "$TEMP_DB" || auth_json_error 500 "Unable to update account database"
+        ;;
+    remove_user|remove_readonly)
+        auth_valid_username "$USERNAME" || auth_json_error 400 "Invalid username"
+        if ! awk -F: -v user="$USERNAME" '$1 == user && ($2 == "user" || $2 == "readonly") { found=1 } END { exit !found }' "$AUTH_DB"; then
+            auth_json_error 400 "User account not found"
+        fi
+        awk -F: -v user="$USERNAME" '$1 != user' "$AUTH_DB" > "$TEMP_DB" || auth_json_error 500 "Unable to update account database"
+        ;;
+    change_user_password)
+        auth_valid_username "$USERNAME" || auth_json_error 400 "Invalid username"
+        auth_valid_password "$PASSWORD" || auth_json_error 400 "Password must be 1-64 printable characters without quotes or backslashes"
+        if ! awk -F: -v user="$USERNAME" '$1 == user && ($2 == "user" || $2 == "readonly") { found=1 } END { exit !found }' "$AUTH_DB"; then
+            auth_json_error 400 "User account not found"
+        fi
+        HASH=$(auth_password_hash "$PASSWORD") || auth_json_error 500 "Unable to hash password"
+        awk -F: -v user="$USERNAME" -v hash="$HASH" 'BEGIN { OFS=":" } $1 == user && ($2 == "user" || $2 == "readonly") { $3=hash } { print }' "$AUTH_DB" > "$TEMP_DB" || auth_json_error 500 "Unable to update account database"
+        ;;
+    change_admin_password)
+        auth_valid_password "$PASSWORD" || auth_json_error 400 "Password must be 1-64 printable characters without quotes or backslashes"
+        HASH=$(auth_password_hash "$PASSWORD") || auth_json_error 500 "Unable to hash password"
+        awk -F: -v hash="$HASH" 'BEGIN { OFS=":" } $2 == "admin" { $3=hash } { print }' "$AUTH_DB" > "$TEMP_DB" || auth_json_error 500 "Unable to update admin password"
+        ;;
+    *)
+        auth_json_error 400 "Unknown account action"
+        ;;
+esac
+
+chmod 600 "$TEMP_DB" || auth_json_error 500 "Unable to secure account database"
+TEMP_CONF="$AUTH_HTTPD_CONF.$$"
+auth_write_httpd_conf "$TEMP_DB" "$TEMP_CONF" || {
+    rm -f "$TEMP_DB" "$TEMP_CONF"
+    auth_json_error 500 "Unable to update HTTP authentication configuration"
+}
+mv "$TEMP_CONF" "$AUTH_HTTPD_CONF" || auth_json_error 500 "Unable to activate account changes"
+if ! mv "$TEMP_DB" "$AUTH_DB"; then
+    auth_write_httpd_conf "$AUTH_DB" "$AUTH_HTTPD_CONF"
+    auth_json_error 500 "Unable to activate account changes"
+fi
+
+echo "Content-type: application/json"
+echo ""
+echo '{"success":true}'

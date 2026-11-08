@@ -1,5 +1,8 @@
 #!/bin/sh
-# CGI scan script for JioFi Repeater Web UI
+# CGI scan script for OpenFi Repeater Web UI
+. /usr/lib/repeater_auth.sh
+auth_require_admin
+
 echo "Content-type: application/json"
 echo ""
 

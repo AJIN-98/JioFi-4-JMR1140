@@ -1,612 +1,973 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JioFi Control Panel</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10172a">
+    <title>OpenFi | Repeater</title>
     <style>
         :root {
-            --bg-color: #fafafa;
-            --panel-bg: #ffffff;
-            --border-color: #e4e4e7;
-            --text-primary: #18181b;
-            --text-secondary: #71717a;
-            --accent: #2563eb;
-            --accent-hover: #1d4ed8;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
+            color-scheme: light;
+            --page: #f3f6fb;
+            --surface: #fff;
+            --surface-muted: #f8faff;
+            --ink: #182238;
+            --muted: #748099;
+            --line: #e4e9f2;
+            --brand: #3867ed;
+            --brand-dark: #2852d2;
+            --green: #15966b;
+            --amber: #bd7800;
+            --red: #d84e54;
+            --shadow: 0 18px 48px rgba(29, 49, 88, .08);
         }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-color: #09090b;
-                --panel-bg: #18181b;
-                --border-color: #27272a;
-                --text-primary: #f4f4f5;
-                --text-secondary: #a1a1aa;
-                --accent: #3b82f6;
-                --accent-hover: #60a5fa;
-            }
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            line-height: 1.5;
-            padding: 2rem 1rem;
-            display: flex;
-            justify-content: center;
+            margin: 0;
+            min-height: 100vh;
+            background: var(--page);
+            color: var(--ink);
+            font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
-
-        .container {
-            width: 100%;
-            max-width: 540px;
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-        }
-
-        header {
-            margin-bottom: 0.5rem;
-        }
-
-        header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-        }
-
-        header p {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-
-        .panel {
-            background-color: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1.25rem;
-        }
-
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .panel-title {
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .status-indicator {
+        button, input, select { font: inherit; }
+        button { cursor: pointer; }
+        .shell { min-height: 100vh; }
+        .topbar {
+            position: sticky;
+            z-index: 5;
+            top: 0;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: var(--text-secondary);
-        }
-
-        .status-dot.connected {
-            background-color: var(--success);
-            box-shadow: 0 0 8px var(--success);
-        }
-
-        .status-dot.disconnected {
-            background-color: var(--danger);
-        }
-
-        .info-row {
-            display: flex;
             justify-content: space-between;
-            padding: 0.65rem 0;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 0.9rem;
+            min-height: 72px;
+            padding: 0 32px;
+            background: rgba(255,255,255,.94);
+            border-bottom: 1px solid var(--line);
+            backdrop-filter: blur(14px);
         }
-
-        .info-row:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-mark {
+            display: grid;
+            width: 40px;
+            height: 40px;
+            place-items: center;
+            border-radius: 13px;
+            background: linear-gradient(145deg, #4d7bff, #3156d7);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: -.05em;
         }
-
-        .info-label {
-            color: var(--text-secondary);
+        .brand-name { font-size: 16px; font-weight: 750; letter-spacing: -.02em; }
+        .brand-subtitle { color: var(--muted); font-size: 12px; }
+        .top-actions { display: flex; align-items: center; gap: 12px; }
+        .identity { color: var(--muted); font-size: 13px; }
+        .layout {
+            display: grid;
+            grid-template-columns: 220px minmax(0, 1fr);
+            gap: 30px;
+            width: min(1200px, 100%);
+            margin: 0 auto;
+            padding: 30px 28px 60px;
         }
-
-        .info-value {
-            font-weight: 500;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        label {
-            display: block;
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-            margin-bottom: 0.35rem;
+        .sidebar { align-self: start; position: sticky; top: 98px; }
+        .nav-label {
+            margin: 4px 12px 12px;
+            color: #9aa4b6;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .12em;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
         }
-
-        input {
-            width: 100%;
-            background-color: transparent;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 0.6rem 0.75rem;
-            color: var(--text-primary);
-            font-family: inherit;
-            font-size: 0.9rem;
-            outline: none;
-            transition: border-color 0.15s ease;
-        }
-
-        input:focus {
-            border-color: var(--accent);
-        }
-
-        .form-divider {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin: 1.5rem 0 1rem 0;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.25rem;
-        }
-
-        button {
-            width: 100%;
-            background-color: var(--accent);
-            color: #ffffff;
-            border: none;
-            border-radius: 6px;
-            padding: 0.65rem;
-            font-size: 0.9rem;
-            font-weight: 500;
-            font-family: inherit;
-            cursor: pointer;
-            transition: background-color 0.15s ease;
-        }
-
-        button:hover {
-            background-color: var(--accent-hover);
-        }
-
-        button.secondary {
-            background-color: transparent;
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-        }
-
-        button.secondary:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-        }
-
-        .net-list {
+        .nav { display: grid; gap: 5px; }
+        .nav button {
             display: flex;
-            flex-direction: column;
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-        }
-
-        .net-item {
-            display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 0.6rem 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: background-color 0.15s ease;
+            gap: 12px;
+            width: 100%;
+            padding: 11px 12px;
+            border: 0;
+            border-radius: 11px;
+            background: transparent;
+            color: #65718a;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 650;
         }
-
-        .net-item:last-child {
-            border-bottom: none;
+        .nav button:hover { background: #e9eef9; color: var(--ink); }
+        .nav button.active { background: #e8efff; color: var(--brand); }
+        .nav-icon {
+            display: grid;
+            width: 25px;
+            height: 25px;
+            place-items: center;
+            border-radius: 8px;
+            background: rgba(97,117,155,.1);
+            font-size: 11px;
+            font-weight: 800;
         }
-
-        .net-item:hover {
-            background-color: rgba(0, 0, 0, 0.03);
+        main { min-width: 0; }
+        .page { display: none; animation: appear .18s ease-out; }
+        .page.active { display: block; }
+        @keyframes appear { from { opacity: .5; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+        .page-heading { margin: 2px 0 22px; }
+        .page-heading h1 { margin: 0; font-size: clamp(24px, 4vw, 31px); letter-spacing: -.04em; }
+        .page-heading p { margin: 5px 0 0; color: var(--muted); font-size: 14px; }
+        .grid { display: grid; gap: 18px; }
+        .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .card {
+            min-width: 0;
+            padding: 22px;
+            border: 1px solid var(--line);
+            border-radius: 17px;
+            background: var(--surface);
+            box-shadow: var(--shadow);
         }
-
-        @media (prefers-color-scheme: dark) {
-            .net-item:hover {
-                background-color: rgba(255, 255, 255, 0.03);
-            }
-        }
-
-        .net-name {
-            font-weight: 500;
-        }
-
-        .net-meta {
-            color: var(--text-secondary);
-            font-size: 0.75rem;
-            margin-top: 0.15rem;
-        }
-
-        .net-signal {
-            font-weight: 500;
-            color: var(--accent);
-        }
-
-        .client-item {
+        .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+        .card-title { margin: 0; font-size: 14px; font-weight: 750; letter-spacing: -.01em; }
+        .card-note { color: var(--muted); font-size: 12px; }
+        .battery-card {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 0.85rem;
+            justify-content: space-between;
+            gap: 24px;
+            min-height: 184px;
+            background: radial-gradient(circle at 88% 18%, #dce8ff 0, transparent 33%), #fff;
         }
-
-        .client-item:last-child {
-            border-bottom: none;
+        .battery-copy h2 { margin: 5px 0; font-size: 30px; letter-spacing: -.05em; }
+        .battery-copy p { margin: 0; color: var(--muted); }
+        .eyebrow { color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+        .battery-visual {
+            position: relative;
+            width: 92px;
+            height: 46px;
+            padding: 4px;
+            border: 3px solid #53627d;
+            border-radius: 10px;
         }
-
-        .client-name {
-            font-weight: 500;
+        .battery-visual::after {
+            position: absolute;
+            top: 12px;
+            right: -9px;
+            width: 5px;
+            height: 16px;
+            border-radius: 0 4px 4px 0;
+            background: #53627d;
+            content: "";
         }
-
-        .client-mac {
-            color: var(--text-secondary);
-            font-size: 0.75rem;
-            font-family: monospace;
-            margin-top: 0.15rem;
+        .battery-fill { width: 0; height: 100%; border-radius: 4px; background: var(--green); transition: width .4s ease, background-color .2s ease; }
+        .battery-fill.low { background: var(--red); }
+        .battery-fill.medium { background: var(--amber); }
+        .battery-fill.high { background: var(--green); }
+        .stat-card { min-height: 125px; }
+        .stat-value { display: block; overflow: hidden; margin-top: 9px; font-size: 19px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+        .stat-sub { color: var(--muted); font-size: 12px; }
+        .status-pill { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }
+        .status-pill::before { width: 8px; height: 8px; border-radius: 50%; background: #aab3c2; content: ""; }
+        .status-pill.online { color: var(--green); }
+        .status-pill.online::before { background: var(--green); box-shadow: 0 0 0 4px #e2f5ee; }
+        .status-pill.offline { color: var(--red); }
+        .status-pill.offline::before { background: var(--red); }
+        .info-list { display: grid; }
+        .info-row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+        .info-row:last-child { border-bottom: 0; }
+        .info-row span:first-child { color: var(--muted); }
+        .info-row span:last-child { overflow-wrap: anywhere; text-align: right; font-weight: 650; }
+        .btn {
+            display: inline-flex;
+            min-height: 42px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 16px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: var(--brand);
+            color: white;
+            font-size: 13px;
+            font-weight: 750;
+            transition: background .15s, transform .15s;
         }
-
-        .client-ip {
-            color: var(--text-secondary);
+        .btn:hover { transform: translateY(-1px); background: var(--brand-dark); }
+        .btn:disabled { cursor: wait; opacity: .6; transform: none; }
+        .btn.outline { border-color: var(--line); background: white; color: var(--ink); }
+        .btn.outline:hover { background: var(--surface-muted); }
+        .btn.danger { border-color: #f0d7d8; background: #fff; color: var(--red); }
+        .btn.small { min-height: 34px; padding: 0 11px; font-size: 12px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+        .field { margin-bottom: 16px; }
+        .field.full { grid-column: 1 / -1; }
+        label { display: block; margin-bottom: 6px; color: #53617b; font-size: 12px; font-weight: 700; }
+        input, select {
+            width: 100%;
+            min-height: 44px;
+            padding: 9px 12px;
+            border: 1px solid #dfe5ef;
+            border-radius: 10px;
+            outline: 0;
+            background: #fff;
+            color: var(--ink);
         }
-
-        .loading-text {
-            text-align: center;
-            color: var(--text-secondary);
-            padding: 1rem;
-            font-size: 0.85rem;
+        input:focus, select:focus { border-color: #8ca8ff; box-shadow: 0 0 0 3px #edf2ff; }
+        input[type="checkbox"] { width: 17px; min-height: 17px; accent-color: var(--brand); }
+        .check { display: flex; align-items: center; gap: 9px; color: #58657e; font-size: 13px; }
+        .help { margin: -7px 0 16px; color: var(--muted); font-size: 12px; }
+        .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 5px; }
+        .notice { margin: 12px 0; padding: 12px 14px; border: 1px solid #dce5ff; border-radius: 10px; background: #f4f7ff; color: #425984; font-size: 13px; }
+        .notice.warning { border-color: #f0e2bf; background: #fffaf0; color: #795b1e; }
+        .notice.error { border-color: #f2d5d5; background: #fff7f7; color: #9c3d43; }
+        .network-list, .client-list, .account-list { display: grid; gap: 8px; }
+        .network {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            background: white;
+            color: var(--ink);
+            text-align: left;
+        }
+        .network:hover { border-color: #aac0ff; background: #f8faff; }
+        .network-name { font-weight: 700; overflow-wrap: anywhere; }
+        .network-meta { color: var(--muted); font-size: 11px; }
+        .empty { padding: 18px 10px; color: var(--muted); text-align: center; font-size: 13px; }
+        .client-row, .account-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+        .client-row:last-child, .account-row:last-child { border-bottom: 0; }
+        .client-name, .account-name { font-weight: 700; }
+        .client-meta, .account-meta { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+        .badge { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px; background: #edf2ff; color: #4361bd; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+        .divider { height: 1px; margin: 20px 0; background: var(--line); }
+        .mobile-nav { display: none; }
+        .toast {
+            position: fixed;
+            z-index: 20;
+            right: 20px;
+            bottom: 20px;
+            max-width: min(420px, calc(100vw - 40px));
+            padding: 13px 16px;
+            border-radius: 12px;
+            background: #182238;
+            color: white;
+            box-shadow: var(--shadow);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(12px);
+            transition: .2s ease;
+        }
+        .toast.show { opacity: 1; transform: none; }
+        .overlay {
+            position: fixed;
+            z-index: 30;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(12, 20, 38, .52);
+            backdrop-filter: blur(5px);
+        }
+        .overlay.open { display: flex; }
+        .login-card { width: min(420px, 100%); padding: 28px; border-radius: 18px; background: white; box-shadow: 0 28px 80px rgba(0,0,0,.2); }
+        .login-card h2 { margin: 0; font-size: 23px; letter-spacing: -.03em; }
+        .login-card p { margin: 7px 0 20px; color: var(--muted); font-size: 13px; }
+        .login-card .field { margin-bottom: 13px; }
+        .login-card .actions { margin-top: 18px; }
+        .login-card .btn { flex: 1; }
+        .account-actions { display: flex; align-items: center; gap: 8px; }
+        .account-password { width: min(220px, 42vw); min-height: 36px; padding: 7px 9px; font-size: 12px; }
+        @media (max-width: 820px) {
+            .topbar { min-height: 64px; padding: 0 18px; }
+            .layout { grid-template-columns: 1fr; gap: 18px; padding: 20px 16px 42px; }
+            .sidebar { display: none; }
+            .mobile-nav { position: sticky; z-index: 4; top: 64px; display: flex; gap: 6px; overflow-x: auto; margin: -20px -16px 0; padding: 10px 16px; border-bottom: 1px solid var(--line); background: rgba(243,246,251,.96); }
+            .mobile-nav button { flex: 0 0 auto; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: white; color: #66738b; font-size: 12px; font-weight: 700; }
+            .mobile-nav button.active { border-color: #cbd8ff; background: #e8efff; color: var(--brand); }
+            .grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 520px) {
+            .identity { display: none; }
+            .brand-subtitle { display: none; }
+            .grid.two, .grid.three, .form-grid { grid-template-columns: 1fr; }
+            .account-row { align-items: flex-start; flex-direction: column; }
+            .account-actions { width: 100%; flex-wrap: wrap; }
+            .account-password { flex: 1 1 130px; width: auto; }
+            .field.full { grid-column: auto; }
+            .card { padding: 18px; border-radius: 14px; }
+            .battery-card { min-height: 155px; }
+            .battery-copy h2 { font-size: 26px; }
+            .battery-visual { flex: 0 0 76px; width: 76px; height: 40px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>JioFi Repeater</h1>
-            <p>Wireless Extender Configuration</p>
-        </header>
-
-        <!-- Status Panel -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title">Connection Status</span>
-                <span class="status-indicator">
-                    <span id="status-dot" class="status-dot"></span>
-                    <span id="status-text">Checking...</span>
-                </span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Upstream SSID</span>
-                <span id="upstream-ssid" class="info-value">—</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Signal Level</span>
-                <span id="upstream-signal" class="info-value">—</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">IP Address</span>
-                <span id="local-ip" class="info-value">—</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Battery Status</span>
-                <span id="battery-status" class="info-value">—</span>
-            </div>
-            <div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
-                <button id="btn-reboot" class="secondary" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.25); font-weight: 600;">Reboot Device</button>
+<div class="shell">
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-mark">JF</div>
+            <div>
+                <div class="brand-name">OpenFi Repeater</div>
+                <div class="brand-subtitle">Device control center</div>
             </div>
         </div>
-
-        <!-- Networks Scan Panel -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title">Available Networks</span>
-                <button id="btn-scan" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.75rem;">Scan</button>
-            </div>
-            <div id="scan-list" class="net-list">
-                <div class="loading-text">Click scan to discover networks.</div>
-            </div>
+        <div class="top-actions">
+            <span id="identity" class="identity">Not signed in</span>
+            <button id="login-button" class="btn small">Sign in</button>
         </div>
+    </header>
 
-        <!-- Upstream Wifi Setup Panel -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title">Upstream Wi-Fi Connection</span>
-            </div>
-            <form id="upstream-form">
-                <div class="form-group">
-                    <label for="ssid">Network Name (SSID)</label>
-                    <input type="text" id="ssid" placeholder="Target Wi-Fi SSID" required>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="nav-label">Menu</div>
+            <nav id="side-nav" class="nav"></nav>
+        </aside>
+        <nav id="mobile-nav" class="mobile-nav"></nav>
+
+        <main>
+            <section class="page active" id="page-dashboard" data-page="dashboard">
+                <div class="page-heading">
+                    <h1>Device overview</h1>
+                    <p>Battery and live repeater status at a glance.</p>
                 </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Target Wi-Fi Password">
+                <div id="apply-notice" class="notice warning" hidden></div>
+                <div class="grid two">
+                    <article class="card battery-card">
+                        <div class="battery-copy">
+                            <div class="eyebrow">Battery level</div>
+                            <h2 id="battery-level">—%</h2>
+                            <p id="battery-status">Sign in to load device status</p>
+                        </div>
+                        <div id="battery-visual" class="battery-visual" aria-label="Battery level">
+                            <div id="battery-fill" class="battery-fill"></div>
+                        </div>
+                    </article>
+                    <article class="card">
+                        <div class="card-head">
+                            <h2 class="card-title">Repeater connection</h2>
+                            <span id="connection-pill" class="status-pill">Not checked</span>
+                        </div>
+                        <div class="info-list">
+                            <div class="info-row"><span>Upstream network</span><span id="upstream-value">—</span></div>
+                            <div class="info-row"><span>Signal strength</span><span id="signal-value">—</span></div>
+                            <div class="info-row"><span>Device IP</span><span id="ip-value">—</span></div>
+                        </div>
+                    </article>
                 </div>
-                
-                <div class="form-group">
-                    <label for="ip-mode">IP Assignment</label>
-                    <select id="ip-mode" style="width: 100%; background-color: transparent; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem 0.75rem; color: var(--text-primary); font-family: inherit; font-size: 0.9rem; outline: none; transition: border-color 0.15s ease;">
-                        <option value="dhcp" style="background-color: var(--panel-bg); color: var(--text-primary);">Automatic (DHCP)</option>
-                        <option value="static" style="background-color: var(--panel-bg); color: var(--text-primary);">Static IP</option>
-                    </select>
+                <div class="grid three" style="margin-top:18px">
+                    <article class="card stat-card"><div class="eyebrow">Hotspot</div><span id="hotspot-value" class="stat-value">—</span><span class="stat-sub">Local Wi-Fi network</span></article>
+                    <article class="card stat-card"><div class="eyebrow">Connected devices</div><span id="client-count" class="stat-value">—</span><span class="stat-sub">Active hotspot clients</span></article>
+                    <article class="card stat-card"><div class="eyebrow">Uptime</div><span id="uptime-value" class="stat-value">—</span><span class="stat-sub">Since last boot</span></article>
                 </div>
-                
-                <div id="static-ip-fields" style="display: none;">
-                    <div class="form-group">
-                        <label for="ip-addr">IP Address</label>
-                        <input type="text" id="ip-addr" placeholder="e.g. 192.168.1.101">
+                <article class="card" style="margin-top:18px">
+                    <div class="card-head"><h2 class="card-title">System information</h2><span id="refresh-label" class="card-note">Sign in to view</span></div>
+                    <div class="info-list">
+                        <div class="info-row"><span>Battery state</span><span id="battery-detail">—</span></div>
+                        <div class="info-row"><span>Memory available</span><span id="memory-value">—</span></div>
+                        <div class="info-row"><span>Current account</span><span id="role-value">—</span></div>
                     </div>
-                    <div class="form-group">
-                        <label for="netmask">Subnet Mask</label>
-                        <input type="text" id="netmask" placeholder="e.g. 255.255.255.0">
-                    </div>
-                    <div class="form-group">
-                        <label for="gateway">Gateway Address</label>
-                        <input type="text" id="gateway" placeholder="e.g. 192.168.1.1">
-                    </div>
-                </div>
+                </article>
+            </section>
 
-                <button type="submit" id="btn-save-upstream" style="margin-top: 0.5rem;">Connect to Network</button>
-            </form>
-        </div>
-
-        <!-- Local Hotspot Panel -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title">Local Hotspot Settings</span>
-            </div>
-            <form id="hotspot-form">
-                <div class="form-group">
-                    <label for="ap-ssid">SSID (Hotspot Name)</label>
-                    <input type="text" id="ap-ssid" placeholder="JioFi_Repeater" required>
-                </div>
-                <div class="form-group">
-                    <label for="ap-pass">Password</label>
-                    <input type="password" id="ap-pass" placeholder="At least 8 characters" required minlength="8">
-                </div>
-
-                <button type="submit" id="btn-save-hotspot" style="margin-top: 0.5rem;">Apply Hotspot Settings</button>
-            </form>
-        </div>
-
-        <!-- Connected Clients Panel -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title">Connected Devices</span>
-            </div>
-            <div id="client-list">
-                <div class="loading-text">No active client devices.</div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function updateStatus() {
-            fetch('/cgi-bin/status')
-                .then(res => res.json())
-                .then(data => {
-                    const dot = document.getElementById('status-dot');
-                    const text = document.getElementById('status-text');
-                    
-                    if (data.connected) {
-                        dot.className = 'status-dot connected';
-                        text.innerText = 'Connected';
-                    } else {
-                        dot.className = 'status-dot disconnected';
-                        text.innerText = 'Disconnected';
-                    }
-
-                    document.getElementById('upstream-ssid').innerText = data.ssid || '—';
-                    document.getElementById('upstream-signal').innerText = data.ssid ? (data.signal + '%') : '—';
-                    document.getElementById('local-ip').innerText = data.ip || '—';
-                    document.getElementById('battery-status').innerText = data.batt_level + '% (' + data.batt_status + ')';
-
-                    if (!document.activeElement || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT')) {
-                        if (data.ssid) document.getElementById('ssid').value = data.ssid;
-                        if (data.ap_ssid) document.getElementById('ap-ssid').value = data.ap_ssid;
-                        if (data.ap_pass) document.getElementById('ap-pass').value = data.ap_pass;
-                        
-                        if (data.ip_mode) {
-                            document.getElementById('ip-mode').value = data.ip_mode;
-                            const staticFields = document.getElementById('static-ip-fields');
-                            if (data.ip_mode === 'static') {
-                                staticFields.style.display = 'block';
-                                if (data.ip_addr) document.getElementById('ip-addr').value = data.ip_addr;
-                                if (data.netmask) document.getElementById('netmask').value = data.netmask;
-                                if (data.gateway) document.getElementById('gateway').value = data.gateway;
-                            } else {
-                                staticFields.style.display = 'none';
-                            }
-                        }
-                    }
-
-                    const clientList = document.getElementById('client-list');
-                    if (data.clients && data.clients.length > 0) {
-                        clientList.innerHTML = data.clients.map(client => `
-                            <div class="client-item">
-                                <div>
-                                    <div class="client-name">${client.name || 'Anonymous Device'}</div>
-                                    <div class="client-mac">${client.mac}</div>
-                                </div>
-                                <div class="client-ip">${client.ip}</div>
+            <section class="page" id="page-internet" data-page="internet">
+                <div class="page-heading"><h1>Internet connection</h1><p>Choose the Wi-Fi network this repeater connects to.</p></div>
+                <article class="card">
+                    <div class="card-head"><h2 class="card-title">Nearby Wi-Fi networks</h2><button id="scan-button" class="btn outline small">Scan networks</button></div>
+                    <div id="network-list" class="network-list"><div class="empty">Sign in to scan for Wi-Fi networks.</div></div>
+                </article>
+                <article class="card" style="margin-top:18px">
+                    <div class="card-head"><h2 class="card-title">Connect to a network</h2></div>
+                    <form id="upstream-form">
+                        <div class="form-grid">
+                            <div class="field full"><label for="ssid">Network name (SSID)</label><input id="ssid" name="ssid" maxlength="32" required autocomplete="off" placeholder="Select a network or enter its name"></div>
+                            <div class="field full"><label for="password">Wi-Fi password</label><input id="password" name="password" type="password" maxlength="63" autocomplete="new-password" placeholder="Leave empty to keep the saved password"></div>
+                            <div class="field full"><label class="check"><input id="open-network" type="checkbox"> This network has no password</label></div>
+                            <div id="ip-settings" class="field full">
+                                <label for="ip-mode">IP assignment</label>
+                                <select id="ip-mode">
+                                    <option value="dhcp">Automatic (recommended)</option>
+                                    <option value="static">Static IP address</option>
+                                </select>
                             </div>
-                        `).join('');
-                    } else {
-                        clientList.innerHTML = '<div class="loading-text">No active client devices.</div>';
-                    }
-                })
-                .catch(err => console.error("Status fetch failed", err));
-        }
+                            <div id="static-fields" class="field full form-grid" hidden>
+                                <div class="field"><label for="ip-addr">IP address</label><input id="ip-addr" inputmode="decimal" placeholder="192.168.1.50"></div>
+                                <div class="field"><label for="netmask">Subnet mask</label><input id="netmask" inputmode="decimal" placeholder="255.255.255.0"></div>
+                                <div class="field full"><label for="gateway">Gateway</label><input id="gateway" inputmode="decimal" placeholder="192.168.1.1"></div>
+                            </div>
+                        </div>
+                        <p class="help">Applying a new upstream network can take a minute. The local hotspot stays available while it reconnects.</p>
+                        <div class="actions"><button id="save-upstream" class="btn" type="submit">Save and connect</button></div>
+                    </form>
+                </article>
+            </section>
 
-        document.getElementById('btn-scan').addEventListener('click', () => {
-            const scanList = document.getElementById('scan-list');
-            scanList.innerHTML = '<div class="loading-text">Scanning for networks...</div>';
-            
-            fetch('/cgi-bin/scan')
-                .then(res => res.json())
-                .then(networks => {
-                    if (networks.length === 0) {
-                        scanList.innerHTML = '<div class="loading-text">No networks detected.</div>';
+            <section class="page" id="page-wifi" data-page="wifi">
+                <div class="page-heading"><h1>Hotspot Wi-Fi</h1><p>Set the local network name and password for your devices.</p></div>
+                <article class="card">
+                    <div class="card-head"><h2 class="card-title">Local hotspot settings</h2></div>
+                    <form id="hotspot-form">
+                        <div class="form-grid">
+                            <div id="hotspot-ssid-field" class="field full"><label for="ap-ssid">Hotspot name (SSID)</label><input id="ap-ssid" name="ap_ssid" maxlength="32" required placeholder="OpenFi_Repeater"></div>
+                            <div class="field full"><label for="ap-pass"><span id="hotspot-password-label">New hotspot password</span></label><input id="ap-pass" name="ap_pass" type="password" minlength="8" maxlength="63" autocomplete="new-password" placeholder="Enter a new Wi-Fi password"></div>
+                        </div>
+                        <p class="help">Changing the hotspot name or password disconnects current devices. Reconnect using the new details.</p>
+                        <div class="actions"><button id="save-hotspot" class="btn" type="submit">Save hotspot</button></div>
+                    </form>
+                </article>
+            </section>
+
+            <section class="page" id="page-devices" data-page="devices">
+                <div class="page-heading"><h1>Connected devices</h1><p>Devices currently connected to your local hotspot.</p></div>
+                <article class="card">
+                    <div class="card-head"><h2 class="card-title">Active clients</h2><span id="device-count-label" class="card-note">—</span></div>
+                    <div id="clients" class="client-list"><div class="empty">Sign in to view connected devices.</div></div>
+                </article>
+            </section>
+
+            <section class="page" id="page-system" data-page="system">
+                <div class="page-heading"><h1>System</h1><p>Manage device access and system actions.</p></div>
+                <article class="card">
+                    <div class="card-head"><h2 class="card-title">Router accounts</h2><span class="badge">Administrator</span></div>
+                    <p class="help">Admin accounts can configure everything. User accounts can view status and change Wi-Fi settings only.</p>
+                    <div class="notice warning">After changing account passwords or adding/removing users, reboot the repeater to activate the account changes.</div>
+                    <div id="account-change-notice" class="notice warning" role="status" hidden></div>
+                    <form id="add-user-form">
+                        <div class="form-grid">
+                            <div class="field"><label for="new-user">New username</label><input id="new-user" required maxlength="32" pattern="[A-Za-z0-9._-]+" autocomplete="off"></div>
+                            <div class="field"><label for="new-user-password">Password</label><input id="new-user-password" type="password" required minlength="1" maxlength="64" autocomplete="new-password"></div>
+                        </div>
+                        <div class="actions"><button class="btn" type="submit">Add user account</button></div>
+                    </form>
+                    <div class="divider"></div>
+                    <div id="accounts" class="account-list"><div class="empty">Loading accounts…</div></div>
+                    <div class="divider"></div>
+                    <form id="admin-password-form">
+                        <h3 class="card-title" style="margin:0 0 14px">Change administrator password</h3>
+                        <div class="form-grid">
+                            <div class="field"><label for="admin-password">New password</label><input id="admin-password" type="password" required minlength="1" maxlength="64" autocomplete="new-password"></div>
+                            <div class="field"><label for="admin-password-confirm">Confirm password</label><input id="admin-password-confirm" type="password" required minlength="1" maxlength="64" autocomplete="new-password"></div>
+                        </div>
+                        <button class="btn outline" type="submit">Update admin password</button>
+                    </form>
+                </article>
+                <article class="card" style="margin-top:18px">
+                    <div class="card-head"><h2 class="card-title">Device controls</h2></div>
+                    <p class="help">Restart the repeater if you need to apply a system-level change.</p>
+                    <div id="reboot-notice" class="notice warning" role="status" hidden></div>
+                    <button id="reboot-button" class="btn danger" type="button">Restart device</button>
+                </article>
+                <div class="notice warning">HTTP login does not encrypt traffic. Only manage the router on a trusted local Wi-Fi network.</div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="login-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <form id="login-form" class="login-card">
+        <h2 id="login-title">Sign in to OpenFi</h2>
+        <p>Enter your router account to view and manage the repeater.</p>
+        <div class="field"><label for="login-username">Username</label><input id="login-username" required autocomplete="username"></div>
+        <div class="field"><label for="login-password">Password</label><input id="login-password" type="password" required autocomplete="current-password"></div>
+        <div id="login-error" class="notice error" hidden></div>
+        <div class="actions">
+            <button class="btn" type="submit">Sign in</button>
+            <button id="cancel-login" class="btn outline" type="button">Cancel</button>
+        </div>
+    </form>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+    'use strict';
+    const menu = [
+        { id: 'dashboard', title: 'Overview', icon: 'OV', access: 'public' },
+        { id: 'devices', title: 'Devices', icon: 'DV', access: 'public' },
+        { id: 'internet', title: 'Internet', icon: 'IN', access: 'admin' },
+        { id: 'wifi', title: 'Wi-Fi password', icon: 'WF', access: 'user' },
+        { id: 'system', title: 'System & accounts', icon: 'SY', access: 'admin' }
+    ];
+    let credentials = null;
+    let isAdmin = false;
+    let activePage = 'dashboard';
+    let lastApplyState = 'idle';
+    let toastTimer;
+
+    const $ = id => document.getElementById(id);
+    const setText = (id, value) => { $(id).textContent = value == null || value === '' ? '—' : value; };
+    const showToast = message => {
+        const toast = $('toast');
+        toast.textContent = message;
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 4200);
+    };
+    const headersWithAuth = headers => {
+        const result = new Headers(headers || {});
+        if (credentials) result.set('Authorization', 'Basic ' + btoa(credentials.username + ':' + credentials.password));
+        return result;
+    };
+    async function api(url, options = {}) {
+        return fetch(url, { ...options, headers: headersWithAuth(options.headers), cache: 'no-store' });
+    }
+    async function jsonResponse(response, message) {
+        let data;
+        try { data = await response.json(); }
+        catch (_) { throw new Error(response.status === 401 ? 'Incorrect username or password.' : message); }
+        if (!response.ok || data.success === false) throw new Error(data.error || message);
+        return data;
+    }
+    function renderMenu() {
+        const items = menu.filter(item =>
+            item.access === 'public' ||
+            (credentials && (item.access === 'user' || isAdmin))
+        );
+        for (const id of ['side-nav', 'mobile-nav']) {
+            const nav = $(id);
+            nav.replaceChildren();
+            items.forEach(item => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.dataset.page = item.id;
+                button.className = item.id === activePage ? 'active' : '';
+                if (id === 'side-nav') {
+                    const icon = document.createElement('span');
+                    icon.className = 'nav-icon';
+                    icon.textContent = item.icon;
+                    button.append(icon, document.createTextNode(item.title));
+                } else button.textContent = item.title;
+                button.addEventListener('click', () => navigate(item.id));
+                nav.append(button);
+            });
+        }
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.toggle('active', page.dataset.page === activePage);
+        });
+    }
+    function navigate(id) {
+        const destination = menu.find(item => item.id === id);
+        if (!destination || (destination.access !== 'public' && !credentials) ||
+            (destination.access === 'admin' && !isAdmin)) return;
+        activePage = id;
+        renderMenu();
+    }
+    function signedOut() {
+        credentials = null;
+        isAdmin = false;
+        activePage = 'dashboard';
+        $('identity').textContent = 'Not signed in';
+        $('login-button').textContent = 'Sign in';
+        $('battery-status').textContent = 'Sign in to load device status';
+        $('battery-level').textContent = '—%';
+        $('battery-fill').style.width = '0%';
+        $('battery-fill').className = 'battery-fill';
+        $('battery-visual').setAttribute('aria-label', 'Battery level unavailable');
+        $('role-value').textContent = '—';
+        $('refresh-label').textContent = 'Sign in to view';
+        $('ip-settings').hidden = true;
+        $('static-fields').hidden = true;
+        $('hotspot-ssid-field').hidden = true;
+        $('ap-ssid').disabled = true;
+        $('ap-ssid').required = false;
+        $('ap-pass').required = false;
+        $('hotspot-password-label').textContent = 'New Wi-Fi password';
+        renderMenu();
+    }
+    function openLogin() {
+        $('login-error').hidden = true;
+        $('login-overlay').classList.add('open');
+        $('login-username').focus();
+    }
+    function closeLogin() { $('login-overlay').classList.remove('open'); }
+    function setBusy(button, busy, label) {
+        button.disabled = busy;
+        if (busy) {
+            button.dataset.label = button.textContent;
+            button.textContent = label;
+        } else {
+            button.textContent = button.dataset.label || label;
+            delete button.dataset.label;
+        }
+    }
+    function formatUptime(seconds) {
+        if (!Number.isFinite(Number(seconds))) return '—';
+        const total = Math.floor(Number(seconds));
+        const days = Math.floor(total / 86400);
+        const hours = Math.floor((total % 86400) / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        return days ? `${days}d ${hours}h` : `${hours}h ${minutes}m`;
+    }
+    async function updateStatus() {
+        try {
+            const response = await api('/cgi-bin/status');
+            const data = await jsonResponse(response, 'Could not load router status.');
+            const level = Math.max(0, Math.min(100, Number(data.batt_level) || 0));
+            setText('battery-level', `${level}%`);
+            setText('battery-status', data.batt_status || 'Battery status unavailable');
+            $('battery-fill').style.width = `${level}%`;
+            $('battery-fill').className = `battery-fill ${level < 20 ? 'low' : level < 40 ? 'medium' : 'high'}`;
+            $('battery-visual').setAttribute('aria-label', `Battery level ${level}%`);
+            $('battery-detail').textContent = data.batt_status || '—';
+            setText('upstream-value', data.ssid || 'Not connected');
+            setText('signal-value', data.connected ? `${data.signal}%` : '—');
+            setText('ip-value', data.ip || '—');
+            setText('hotspot-value', data.ap_ssid || '—');
+            setText('client-count', String((data.clients || []).length));
+            setText('device-count-label', `${(data.clients || []).length} active`);
+            setText('uptime-value', formatUptime(data.uptime_seconds));
+            setText('memory-value', data.memory_available || '—');
+            setText('role-value', isAdmin ? 'Administrator' : 'User');
+            $('refresh-label').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+            const notice = $('apply-notice');
+            if (data.apply_state === 'restart_pending') {
+                notice.hidden = false;
+                notice.className = 'notice warning';
+                notice.textContent = 'Settings saved. OpenFi will restart in about 30 seconds; keep the device powered on.';
+            } else if (data.apply_state === 'restarting') {
+                notice.hidden = false;
+                notice.className = 'notice warning';
+                notice.textContent = 'OpenFi is restarting now. Reconnect to its Wi-Fi in about a minute.';
+            } else if (data.apply_state === 'failed') {
+                notice.hidden = false;
+                notice.className = 'notice error';
+                notice.textContent = 'The settings were saved, but the repeater could not apply them. Check the Wi-Fi details and try again.';
+            } else if (lastApplyState === 'restart_pending' && data.apply_state === 'complete') {
+                notice.hidden = false;
+                notice.className = 'notice';
+                notice.textContent = 'Wi-Fi settings applied.';
+                showToast('Wi-Fi settings applied.');
+                setTimeout(() => { notice.hidden = true; }, 5000);
+            }
+            lastApplyState = data.apply_state || 'idle';
+            const pill = $('connection-pill');
+            pill.className = `status-pill ${data.connected ? 'online' : 'offline'}`;
+            pill.textContent = data.connected ? 'Connected' : 'Disconnected';
+            if (document.activeElement !== $('ssid') && data.ssid) $('ssid').value = data.ssid;
+            if (document.activeElement !== $('ap-ssid') && data.ap_ssid) $('ap-ssid').value = data.ap_ssid;
+            if (data.ip_mode) $('ip-mode').value = data.ip_mode;
+            $('ip-settings').hidden = !isAdmin;
+            $('static-fields').hidden = !isAdmin || $('ip-mode').value !== 'static';
+            if (data.ip_addr) $('ip-addr').value = data.ip_addr;
+            if (data.netmask) $('netmask').value = data.netmask;
+            if (data.gateway) $('gateway').value = data.gateway;
+            renderClients(data.clients || []);
+        } catch (error) {
+            $('refresh-label').textContent = error.message;
+        }
+    }
+    function renderClients(clients) {
+        const list = $('clients');
+        list.replaceChildren();
+        if (!clients.length) {
+            list.innerHTML = '<div class="empty">No devices are connected to the hotspot.</div>';
+            return;
+        }
+        clients.forEach(client => {
+            const row = document.createElement('div');
+            row.className = 'client-row';
+            const info = document.createElement('div');
+            const name = document.createElement('div');
+            name.className = 'client-name';
+            name.textContent = client.name || 'Unknown device';
+            const meta = document.createElement('div');
+            meta.className = 'client-meta';
+            meta.textContent = `${client.mac || 'MAC unavailable'} · ${client.ip || 'IP unavailable'}`;
+            info.append(name, meta);
+            const badge = document.createElement('span');
+            badge.className = 'badge';
+            badge.textContent = 'Connected';
+            row.append(info, badge);
+            list.append(row);
+        });
+    }
+    async function scanNetworks() {
+        const list = $('network-list');
+        list.replaceChildren();
+        const loading = document.createElement('div');
+        loading.className = 'empty';
+        loading.textContent = 'Scanning nearby Wi-Fi networks…';
+        list.append(loading);
+        const button = $('scan-button');
+        setBusy(button, true, 'Scanning…');
+        try {
+            const data = await jsonResponse(await api('/cgi-bin/scan'), 'Network scan failed. Try again.');
+            list.replaceChildren();
+            if (!Array.isArray(data) || !data.length) {
+                list.innerHTML = '<div class="empty">No networks found. You can enter the network name manually.</div>';
+                return;
+            }
+            data.forEach(network => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'network';
+                const details = document.createElement('span');
+                const name = document.createElement('span');
+                name.className = 'network-name';
+                name.textContent = network.ssid || '(hidden network)';
+                const meta = document.createElement('span');
+                meta.className = 'network-meta';
+                meta.textContent = `Channel ${network.channel || '—'} · ${network.encrypt === 'on' ? 'Secured' : 'Open'} · ${network.signal || '—'} dBm`;
+                details.append(name, document.createElement('br'), meta);
+                const select = document.createElement('span');
+                select.className = 'badge';
+                select.textContent = 'Select';
+                item.append(details, select);
+                item.addEventListener('click', () => {
+                    $('ssid').value = network.ssid || '';
+                    $('open-network').checked = network.encrypt !== 'on';
+                    $('password').focus();
+                });
+                list.append(item);
+            });
+        } catch (error) {
+            list.replaceChildren();
+            const message = document.createElement('div');
+            message.className = 'empty';
+            message.textContent = error.message;
+            list.append(message);
+        } finally { setBusy(button, false, 'Scan networks'); }
+    }
+    async function postUserAction(payload) {
+        return jsonResponse(await api('/cgi-bin/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }), 'Account change failed.');
+    }
+    async function loadAccounts() {
+        if (!isAdmin) return;
+        const data = await jsonResponse(await api('/cgi-bin/users'), 'Unable to load accounts.');
+        const list = $('accounts');
+        list.replaceChildren();
+        data.users.forEach(user => {
+            const row = document.createElement('div');
+            row.className = 'account-row';
+            const info = document.createElement('div');
+            const name = document.createElement('div');
+            name.className = 'account-name';
+            name.textContent = user.username;
+            const meta = document.createElement('div');
+            meta.className = 'account-meta';
+            meta.textContent = user.role === 'admin' ? 'Full administrator access' : 'Wi-Fi settings only';
+            info.append(name, meta);
+            row.append(info);
+            if (user.role !== 'admin') {
+                const actions = document.createElement('div');
+                actions.className = 'account-actions';
+                const password = document.createElement('input');
+                password.className = 'account-password';
+                password.type = 'password';
+                password.maxLength = 64;
+                password.autocomplete = 'new-password';
+                password.placeholder = 'New password';
+                password.setAttribute('aria-label', `New password for ${user.username}`);
+                const update = document.createElement('button');
+                update.type = 'button';
+                update.className = 'btn outline small';
+                update.textContent = 'Update password';
+                update.addEventListener('click', async () => {
+                    if (!password.value) {
+                        showToast('Enter a new password first.');
+                        password.focus();
                         return;
                     }
-                    scanList.innerHTML = networks.map(net => `
-                        <div class="net-item" onclick="selectNetwork('${net.ssid}')">
-                            <div>
-                                <div class="net-name">${net.ssid}</div>
-                                <div class="net-meta">Channel ${net.channel} | ${net.encrypt === 'on' ? 'WPA2' : 'Open'}</div>
-                            </div>
-                            <div class="net-signal">${net.signal} dBm</div>
-                        </div>
-                    `).join('');
-                })
-                .catch(err => {
-                    scanList.innerHTML = '<div class="loading-text">Scan failed. Retry.</div>';
+                    setBusy(update, true, 'Updating…');
+                    try {
+                        await postUserAction({
+                            action: 'change_user_password',
+                            username: user.username,
+                            password: password.value
+                        });
+                        password.value = '';
+                        showAccountRebootNotice();
+                        showToast('Password saved. Reboot the repeater to activate it.');
+                    } catch (error) {
+                        showToast(error.message);
+                    } finally {
+                        setBusy(update, false, 'Update password');
+                    }
                 });
+                actions.append(password, update);
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn danger small';
+                remove.textContent = 'Remove';
+                remove.addEventListener('click', async () => {
+                    if (!window.confirm(`Remove user "${user.username}"?`)) return;
+                    try {
+                        await postUserAction({ action: 'remove_user', username: user.username });
+                        await loadAccounts();
+                        showAccountRebootNotice();
+                        showToast('User account removed.');
+                    } catch (error) { showToast(error.message); }
+                });
+                actions.append(remove);
+                row.append(actions);
+            }
+            list.append(row);
         });
+        if (!data.users.length) list.innerHTML = '<div class="empty">No accounts found.</div>';
+    }
+    function showAccountRebootNotice() {
+        const notice = $('account-change-notice');
+        notice.textContent = 'Account change saved. Reboot the repeater to reflect the updated credentials.';
+        notice.hidden = false;
+    }
+    async function signIn(username, password) {
+        const candidate = { username, password };
+        const response = await fetch('/cgi-bin/users', {
+            headers: { Authorization: 'Basic ' + btoa(username + ':' + password) },
+            cache: 'no-store'
+        });
+        const data = await jsonResponse(response, 'Incorrect username or password.');
+        credentials = candidate;
+        isAdmin = Boolean(data.is_admin);
+        $('ip-settings').hidden = !isAdmin;
+        if (!isAdmin) $('static-fields').hidden = true;
+        $('hotspot-ssid-field').hidden = !isAdmin;
+        $('ap-ssid').disabled = !isAdmin;
+        $('ap-ssid').required = isAdmin;
+        $('ap-pass').required = !isAdmin;
+        $('hotspot-password-label').textContent = isAdmin ? 'New hotspot password' : 'New Wi-Fi password';
+        $('hotspot-form').querySelector('.help').textContent = isAdmin
+            ? 'Changing the hotspot name or password disconnects current devices. Reconnect using the new details.'
+            : 'User accounts can change only the hotspot Wi-Fi password.';
+        if (!isAdmin && activePage === 'internet') activePage = 'dashboard';
+        $('identity').textContent = `${username} · ${isAdmin ? 'Admin' : 'User'}`;
+        $('login-button').textContent = 'Sign out';
+        if (activePage === 'system' && !isAdmin) activePage = 'dashboard';
+        renderMenu();
+        closeLogin();
+        await updateStatus();
+        if (isAdmin) await loadAccounts();
+        showToast(`Signed in as ${username}.`);
+        return data;
+    }
+    async function submitSettings(url, payload, button, pendingLabel, successText) {
+        setBusy(button, true, pendingLabel);
+        try {
+            await jsonResponse(await api(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }), 'Could not apply settings.');
+            navigate('dashboard');
+            showToast(successText);
+            $('apply-notice').hidden = false;
+            $('apply-notice').className = 'notice warning';
+            $('apply-notice').textContent = 'Settings saved. OpenFi will restart in about 30 seconds; the changes become active after restart.';
+            setTimeout(updateStatus, 12000);
+        } catch (error) {
+            showToast(error.message);
+        } finally { setBusy(button, false, pendingLabel); }
+    }
 
-        window.selectNetwork = function(ssid) {
-            document.getElementById('ssid').value = ssid;
-            document.getElementById('password').focus();
+    renderMenu();
+    $('login-button').addEventListener('click', () => credentials ? (signedOut(), showToast('Signed out.')) : openLogin());
+    $('cancel-login').addEventListener('click', closeLogin);
+    $('login-overlay').addEventListener('click', event => { if (event.target === $('login-overlay')) closeLogin(); });
+    $('login-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const button = $('login-form').querySelector('[type="submit"]');
+        setBusy(button, true, 'Signing in…');
+        $('login-error').hidden = true;
+        try {
+            await signIn($('login-username').value.trim(), $('login-password').value);
+            $('login-form').reset();
+        } catch (error) {
+            credentials = null;
+            $('login-error').textContent = error.message;
+            $('login-error').hidden = false;
+        } finally { setBusy(button, false, 'Sign in'); }
+    });
+    $('scan-button').addEventListener('click', scanNetworks);
+    $('ip-mode').addEventListener('change', () => { $('static-fields').hidden = $('ip-mode').value !== 'static'; });
+    $('upstream-form').addEventListener('submit', event => {
+        event.preventDefault();
+        const payload = {
+            ssid: $('ssid').value,
+            password: $('password').value,
+            open_network: $('open-network').checked ? 'true' : 'false'
         };
-
-        document.getElementById('ip-mode').addEventListener('change', (e) => {
-            const staticFields = document.getElementById('static-ip-fields');
-            if (e.target.value === 'static') {
-                staticFields.style.display = 'block';
-                document.getElementById('ip-addr').required = true;
-                document.getElementById('netmask').required = true;
-                document.getElementById('gateway').required = true;
-            } else {
-                staticFields.style.display = 'none';
-                document.getElementById('ip-addr').required = false;
-                document.getElementById('netmask').required = false;
-                document.getElementById('gateway').required = false;
-            }
-        });
-
-        // Submit Upstream Wi-Fi Form
-        document.getElementById('upstream-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('btn-save-upstream');
-            btn.innerText = 'Applying connection...';
-            btn.disabled = true;
-
-            const payload = {
-                ssid: document.getElementById('ssid').value,
-                password: document.getElementById('password').value,
-                ip_mode: document.getElementById('ip-mode').value,
-                ip_addr: document.getElementById('ip-addr').value,
-                netmask: document.getElementById('netmask').value,
-                gateway: document.getElementById('gateway').value
-            };
-
-            fetch('/cgi-bin/save', {
+        if (isAdmin) {
+            payload.ip_mode = $('ip-mode').value;
+            payload.ip_addr = $('ip-addr').value;
+            payload.netmask = $('netmask').value;
+            payload.gateway = $('gateway').value;
+        }
+        submitSettings('/cgi-bin/save', payload, $('save-upstream'), 'Saving…', 'Network settings saved. OpenFi will restart in about 30 seconds.');
+    });
+    $('hotspot-form').addEventListener('submit', event => {
+        event.preventDefault();
+        const payload = { ap_pass: $('ap-pass').value };
+        if (isAdmin) payload.ap_ssid = $('ap-ssid').value;
+        submitSettings('/cgi-bin/save', payload, $('save-hotspot'), 'Saving…', 'Wi-Fi password saved. OpenFi will restart in about 30 seconds.');
+    });
+    $('add-user-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        try {
+            await postUserAction({ action: 'add_user', username: $('new-user').value, password: $('new-user-password').value });
+            form.reset();
+            await loadAccounts();
+            showAccountRebootNotice();
+            showToast('User account added.');
+        } catch (error) { showToast(error.message); }
+    });
+    $('admin-password-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if ($('admin-password').value !== $('admin-password-confirm').value) {
+            showToast('The new passwords do not match.');
+            return;
+        }
+        try {
+            await postUserAction({ action: 'change_admin_password', password: $('admin-password').value });
+            form.reset();
+            showAccountRebootNotice();
+            showToast('Password saved. Reboot the repeater to activate it.');
+        } catch (error) { showToast(error.message); }
+    });
+    $('reboot-button').addEventListener('click', async () => {
+        if (!window.confirm('Restart the OpenFi repeater now?')) return;
+        const button = $('reboot-button');
+        const notice = $('reboot-notice');
+        try {
+            setBusy(button, true, 'Requesting restart…');
+            await jsonResponse(await api('/cgi-bin/reboot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Connecting to upstream network. Re-checking status...');
-                    setTimeout(() => window.location.reload(), 8000);
-                } else {
-                    alert('Failed to apply upstream configurations.');
+                body: '{}'
+            }), 'Restart request failed.');
+            let seconds = 5;
+            notice.hidden = false;
+            notice.textContent = `Device restart in ${seconds} seconds. Keep the device powered on.`;
+            button.textContent = `Restarting (${seconds})…`;
+            const countdown = setInterval(() => {
+                seconds -= 1;
+                if (seconds <= 0) {
+                    clearInterval(countdown);
+                    notice.textContent = 'Restarting now. Reconnect to OpenFi in about one minute.';
+                    button.textContent = 'Restarting…';
+                    showToast('Device is restarting. Reconnect in about one minute.');
+                    return;
                 }
-            })
-            .catch(err => {
-                alert('Upstream settings updated successfully.');
-                setTimeout(() => window.location.reload(), 8000);
-            })
-            .finally(() => {
-                btn.innerText = 'Connect to Network';
-                btn.disabled = false;
-            });
-        });
-
-        // Submit Local Hotspot Form
-        document.getElementById('hotspot-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('btn-save-hotspot');
-            btn.innerText = 'Applying hotspot...';
-            btn.disabled = true;
-
-            const payload = {
-                ap_ssid: document.getElementById('ap-ssid').value,
-                ap_pass: document.getElementById('ap-pass').value
-            };
-
-            fetch('/cgi-bin/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Hotspot settings applied successfully. Reconnect to the new SSID if you changed it.');
-                    setTimeout(() => window.location.reload(), 8000);
-                } else {
-                    alert('Failed to apply hotspot configurations.');
-                }
-            })
-            .catch(err => {
-                alert('Hotspot settings updated. Please reconnect to the Wi-Fi hotspot.');
-                setTimeout(() => window.location.reload(), 8000);
-            })
-            .finally(() => {
-                btn.innerText = 'Apply Hotspot Settings';
-                btn.disabled = false;
-            });
-        });
-
-        // Reboot Button Handler
-        document.getElementById('btn-reboot').addEventListener('click', () => {
-            if (confirm('Are you sure you want to reboot the JioFi device?')) {
-                const btn = document.getElementById('btn-reboot');
-                btn.innerText = 'Rebooting...';
-                btn.disabled = true;
-
-                fetch('/cgi-bin/reboot')
-                .then(res => res.json())
-                .then(data => {
-                    alert('JioFi is rebooting. Please wait 45-60 seconds and reconnect.');
-                })
-                .catch(err => {
-                    alert('Reboot command sent successfully. Reconnect in 45-60 seconds.');
-                });
-            }
-        });
-
-        updateStatus();
-        setInterval(updateStatus, 5000);
-    </script>
+                notice.textContent = `Device restart in ${seconds} seconds. Keep the device powered on.`;
+                button.textContent = `Restarting (${seconds})…`;
+            }, 1000);
+        } catch (error) {
+            button.disabled = false;
+            button.textContent = 'Restart device';
+            delete button.dataset.label;
+            showToast(error.message);
+        }
+    });
+    updateStatus();
+    setInterval(updateStatus, 15000);
+})();
+</script>
 </body>
 </html>

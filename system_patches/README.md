@@ -54,18 +54,30 @@ The root filesystem will be extracted to `/tmp/extracted_rootfs/rootfs/`. Keep t
 ---
 
 ### Option C: I want the full Dual-WLAN Wi-Fi Repeater
-*(Turns the JioFi into a standalone travel router. Connects to an upstream Wi-Fi source on `wlan0` and broadcasts a custom local hotspot on `wlan1`. Includes a Web UI dashboard at `http://192.168.225.1` and dynamic signal strength LEDs.)*
+*(Turns the JioFi into a standalone travel router. Connects to an upstream Wi-Fi source on `wlan0` and broadcasts a custom local hotspot on `wlan1`. Includes a Web UI dashboard at `http://192.168.224.1` and dynamic signal strength LEDs.)*
 
 1. **Apply the Repeater firmware, module drivers, and Web UI files:**
    ```bash
    cp -rf 3_wifi_repeater/* /tmp/extracted_rootfs/rootfs/
    ```
-2. **Create the ADB Shell symlink (required for shell capability):**
+2. **Install the BusyBox build with HTTP Basic Authentication support:**
+   ```bash
+   cp 5_busybox/binaries/1.31.0/busybox /tmp/extracted_rootfs/rootfs/bin/busybox
+   chmod 755 /tmp/extracted_rootfs/rootfs/bin/busybox
+   ln -sf /bin/busybox /tmp/extracted_rootfs/rootfs/sbin/httpd
+   chmod 755 /tmp/extracted_rootfs/rootfs/www/cgi-bin/save
+   chmod 755 /tmp/extracted_rootfs/rootfs/www/cgi-bin/reboot
+   chmod 755 /tmp/extracted_rootfs/rootfs/www/cgi-bin/users
+   chmod 755 /tmp/extracted_rootfs/rootfs/usr/lib/repeater_auth.sh
+   chown 0:0 /tmp/extracted_rootfs/rootfs/www/cgi-bin/users
+   chown 0:0 /tmp/extracted_rootfs/rootfs/usr/lib/repeater_auth.sh
+   ```
+3. **Create the ADB Shell symlink (required for shell capability):**
    ```bash
    mkdir -p /tmp/extracted_rootfs/rootfs/system/bin
    ln -sf /bin/sh /tmp/extracted_rootfs/rootfs/system/bin/sh
    ```
-3. **Register the Repeater service to run automatically on system boot:**
+4. **Register the Repeater service to run automatically on system boot:**
    ```bash
    cd /tmp/extracted_rootfs/rootfs/etc
    ln -sf ../init.d/start_repeater rc2.d/S99start_repeater
@@ -73,7 +85,44 @@ The root filesystem will be extracted to `/tmp/extracted_rootfs/rootfs/`. Keep t
    ln -sf ../init.d/start_repeater rc4.d/S99start_repeater
    ln -sf ../init.d/start_repeater rc5.d/S99start_repeater
    ```
-4. Proceed to **Step 3 (Rebuild & Flash)**.
+5. Proceed to **Step 3 (Rebuild & Flash)**.
+
+The repeater UI saves validated settings before applying them. Applying a changed
+network no longer unloads/reloads the Wi-Fi driver, avoiding the driver reset
+that could leave the device unresponsive. The repeater startup also leaves the
+OEM `uiapp` running so its hardware button handling is not disabled. Hotspot
+passwords are not returned by the status endpoint.
+
+The OpenFi UI is a self-contained, offline-friendly dashboard with separate Overview,
+Internet, Hotspot Wi-Fi, Devices, and System pages. The Overview opens first and
+shows battery and device telemetry. Use the sign-in button in the header; the
+login form is part of the page rather than the browser's Basic Auth popup.
+
+On first boot, the accounts are `admin` / `admin` and `user` / `user`. The
+administrator can manage user accounts, change Wi-Fi and IP settings, and
+restart the device. User accounts can view status and change only the hotspot
+Wi-Fi password. After a configuration change, OpenFi waits 30 seconds and
+restarts to apply it cleanly. Change the default passwords from the System page. HTTP
+does not encrypt credentials or traffic, so use the UI only on a trusted local
+Wi-Fi network.
+Account password and user-list changes are saved immediately, but the repeater
+must be rebooted before the updated credentials take effect. The System page
+displays this reminder.
+The Overview reports charging when USB input is present even if the charger
+driver reports "Not charging". The power-button RGB LED shows red below 20%,
+amber from 20-39%, and green at 40% or above; it blinks in the same color while
+charging and stays solid on battery power.
+
+Each firmware release has a version marker. On first boot after flashing a
+different release, OpenFi resets saved upstream Wi-Fi, hotspot Wi-Fi, IP, and
+account settings to that release's defaults (including `admin` / `admin` and
+`user` / `user`). Normal reboots on the same release preserve settings.
+
+The default hotspot is named `OpenFi_Repeater`. The repeater keeps the OEM network manager disabled to avoid it reconfiguring
+the repeater radios. A small input-event listener handles the OEM power key
+(three-second hold to power off) and WPS key (push-button WPS on the local
+hotspot). Applying new Wi-Fi settings reconfigures the running services without
+unloading the Wi-Fi driver. AP mode is not included.
 
 ---
 
