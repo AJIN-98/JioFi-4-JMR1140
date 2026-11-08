@@ -15,6 +15,14 @@ The local hotspot uses a separate subnet and DHCP service.
 - Administrators can add, remove, and update user passwords, and change the
   administrator password.
 - Wi-Fi settings are saved and applied after a 30-second restart delay.
+- Administrators can set the DNS server used by OpenFi and devices connected to
+  the hotspot.
+- Administrators can turn the Power/Battery, Wi-Fi, and RSSI LED groups on or
+  off independently.
+- Optional power-saving mode reduces LED/watchdog polling and UI refreshes. It
+  leaves Wi-Fi driver power management unchanged and reduces CPU wakeups; it
+  does not increase free memory.
+- The UI offers a persistent dark theme.
 - Account changes are saved immediately; reboot the device to activate updated
   credentials.
 - Power button: hold for three seconds to power off. WPS button: press to start
@@ -28,7 +36,7 @@ The local hotspot uses a separate subnet and DHCP service.
 
 ## Default access
 
-On a fresh v6 installation, the initial accounts are:
+On a fresh v7 installation, the initial accounts are:
 
 | Role | Username | Password |
 |---|---|---|
@@ -49,6 +57,9 @@ release preserve the saved settings.
 - HTTP does not encrypt credentials or traffic. Use the interface only over a
   trusted local connection; do not expose it to the public Internet.
 - AP-only mode is not included.
+- USB Ethernet is not available in the current image. Inspection of the image
+  found no USB Ethernet kernel modules, and this firmware cannot drive a USB
+  Ethernet adapter without a compatible kernel driver.
 
 ## Battery runtime
 
@@ -61,14 +72,22 @@ reconnection, and suspend/resume behavior on the device.
 
 ## Firmware image
 
-The latest verified image for these changes is
-[`mdm9607-sysfs-repeater-openfi-v6.ubi`](../../patched/mdm9607-sysfs-repeater-openfi-v6.ubi).
-Its SHA-256 is:
+The latest image is
+[`mdm9607-sysfs-repeater-openfi-v7.ubi`](../../patched/mdm9607-sysfs-repeater-openfi-v7.ubi).
+It includes the LED, DNS, dark-mode, and power-saving settings. The image was
+rebuilt and extracted to verify its contents; these new options still need
+device testing. USB Ethernet is not supported by the included kernel.
+
+The repeater overlay's UBI build geometry is documented in
+[`system_patches/README.md`](../README.md).
+
+SHA-256 of v7:
 
 ```text
-c54bd4d1bd8f3b96ea39537dcc8413d5bff29af49627aaba070c8b42f979740c
+68e703da2fd27ca14a63ff2fe5c245d9dd6798b2831d20f92e360202fa9ee0d5
 ```
 
 The image was built from the repeater base UBI with the overlay in this
-directory, then extracted to verify the included files. Device-specific
-behavior should still be confirmed after flashing.
+directory, then extracted to verify the included files. The first boot after
+upgrading from v6 resets saved Wi-Fi, IP, and account settings once; reconfigure
+the device after flashing. Device-specific behavior should still be confirmed.

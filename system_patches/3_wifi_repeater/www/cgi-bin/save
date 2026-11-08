@@ -63,10 +63,15 @@ IP_ADDR=$(printf '%s' "$DATA" | grep -o '"ip_addr":"[^"]*' | cut -d'"' -f4)
 NETMASK=$(printf '%s' "$DATA" | grep -o '"netmask":"[^"]*' | cut -d'"' -f4)
 GATEWAY=$(printf '%s' "$DATA" | grep -o '"gateway":"[^"]*' | cut -d'"' -f4)
 OPEN_NETWORK=$(printf '%s' "$DATA" | grep -o '"open_network":"[^"]*' | cut -d'"' -f4)
+REQUEST_DNS_SERVER=$(printf '%s' "$DATA" | grep -o '"dns_server":"[^"]*' | cut -d'"' -f4)
+REQUEST_POWER_LED=$(printf '%s' "$DATA" | grep -o '"power_led":"[^"]*' | cut -d'"' -f4)
+REQUEST_WIFI_LED=$(printf '%s' "$DATA" | grep -o '"wifi_led":"[^"]*' | cut -d'"' -f4)
+REQUEST_RSSI_LED=$(printf '%s' "$DATA" | grep -o '"rssi_led":"[^"]*' | cut -d'"' -f4)
+REQUEST_POWER_SAVE=$(printf '%s' "$DATA" | grep -o '"power_save":"[^"]*' | cut -d'"' -f4)
 
 if [ "$REQUEST_ROLE" = "user" ]; then
     if [ -z "$AP_PASS" ] ||
-       printf '%s' "$DATA" | grep -Eq '"(ssid|password|ap_ssid|ip_mode|ip_addr|netmask|gateway|open_network)"[[:space:]]*:'; then
+       printf '%s' "$DATA" | grep -Eq '"(ssid|password|ap_ssid|ip_mode|ip_addr|netmask|gateway|open_network|dns_server|power_led|wifi_led|rssi_led|power_save)"[[:space:]]*:'; then
         json_error "User accounts can only change the hotspot Wi-Fi password"
     fi
 fi
@@ -123,6 +128,24 @@ if [ -n "$AP_SSID" ] || [ -n "$AP_PASS" ]; then
     fi
 fi
 
+OPTIONS_REQUESTED=0
+if printf '%s' "$DATA" | grep -Eq '"(dns_server|power_led|wifi_led|rssi_led|power_save)"[[:space:]]*:'; then
+    [ "$REQUEST_ROLE" = "admin" ] || json_error "Only administrators can change repeater options"
+    . /usr/lib/repeater_options.sh
+    repeater_load_options
+    if printf '%s' "$DATA" | grep -q '"dns_server"[[:space:]]*:'; then DNS_SERVER="$REQUEST_DNS_SERVER"; fi
+    if printf '%s' "$DATA" | grep -q '"power_led"[[:space:]]*:'; then POWER_LED="$REQUEST_POWER_LED"; fi
+    if printf '%s' "$DATA" | grep -q '"wifi_led"[[:space:]]*:'; then WIFI_LED="$REQUEST_WIFI_LED"; fi
+    if printf '%s' "$DATA" | grep -q '"rssi_led"[[:space:]]*:'; then RSSI_LED="$REQUEST_RSSI_LED"; fi
+    if printf '%s' "$DATA" | grep -q '"power_save"[[:space:]]*:'; then POWER_SAVE="$REQUEST_POWER_SAVE"; fi
+    repeater_valid_ipv4 "$DNS_SERVER" || json_error "Enter a valid IPv4 DNS server"
+    case "$POWER_LED:$WIFI_LED:$RSSI_LED:$POWER_SAVE" in
+        [01]:[01]:[01]:[01]) ;;
+        *) json_error "Invalid LED or power-saving setting" ;;
+    esac
+    OPTIONS_REQUESTED=1
+fi
+
 if [ -n "$IP_MODE" ]; then
     [ "$REQUEST_ROLE" = "admin" ] || json_error "Only administrators can change IP settings"
     case "$IP_MODE" in
@@ -145,6 +168,18 @@ if [ -n "$IP_MODE" ]; then
         printf 'GATEWAY="%s"\n' "$GATEWAY"
     } > "$TMP" && mv "$TMP" /data/ip_config.conf || json_error "Unable to save IP configuration"
     APPLY_IP=1
+fi
+
+if [ "$OPTIONS_REQUESTED" = "1" ]; then
+    OPTIONS_TMP="/data/repeater-options.conf.$$"
+    {
+        printf 'dns_server=%s\n' "$DNS_SERVER"
+        printf 'power_led=%s\n' "$POWER_LED"
+        printf 'wifi_led=%s\n' "$WIFI_LED"
+        printf 'rssi_led=%s\n' "$RSSI_LED"
+        printf 'power_save=%s\n' "$POWER_SAVE"
+    } > "$OPTIONS_TMP" && chmod 600 "$OPTIONS_TMP" && mv "$OPTIONS_TMP" /data/repeater-options.conf ||
+        json_error "Unable to save repeater options"
 fi
 
 if [ -n "$SSID" ]; then
@@ -183,6 +218,7 @@ if [ -n "$AP_SSID" ] && [ -n "$AP_PASS" ]; then
 fi
 
 if [ -n "$SSID" ] || [ -n "$AP_SSID" ] || [ -n "$IP_MODE" ] ||
+   [ "$OPTIONS_REQUESTED" = "1" ] ||
    { [ -n "$AP_PASS" ] && [ "$REQUEST_ROLE" = "user" ]; }; then
     printf 'restart_pending\n' > /data/repeater_apply.status.$$ &&
         mv /data/repeater_apply.status.$$ /data/repeater_apply.status ||

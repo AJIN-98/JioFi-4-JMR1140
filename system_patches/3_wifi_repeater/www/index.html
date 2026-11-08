@@ -21,6 +21,45 @@
             --red: #d84e54;
             --shadow: 0 18px 48px rgba(29, 49, 88, .08);
         }
+        body.dark {
+            color-scheme: dark;
+            --page: #10151f;
+            --surface: #1a2230;
+            --surface-muted: #222c3d;
+            --ink: #e7edf7;
+            --muted: #a1aec2;
+            --line: #303b4e;
+            --brand: #7192ff;
+            --brand-dark: #5b7de8;
+            --green: #42c89a;
+            --amber: #f0b547;
+            --red: #f06b72;
+            --shadow: 0 18px 48px rgba(0, 0, 0, .24);
+            background: var(--page);
+        }
+        body.dark .topbar { background: rgba(22, 29, 42, .96); }
+        body.dark .nav button:hover,
+        body.dark .nav button.active { background: #27344a; }
+        body.dark .nav button.active { color: #a9bcff; }
+        body.dark .card,
+        body.dark .login-card,
+        body.dark .network,
+        body.dark .btn.outline,
+        body.dark .mobile-nav { background: var(--surface); color: var(--ink); }
+        body.dark .battery-card { background: radial-gradient(circle at 88% 18%, #263c63 0, transparent 38%), var(--surface); }
+        body.dark .battery-visual { border-color: #9aa8be; }
+        body.dark .battery-visual::after { background: #9aa8be; }
+        body.dark input,
+        body.dark select { border-color: var(--line); background: #141b27; color: var(--ink); }
+        body.dark .btn.outline,
+        body.dark .mobile-nav button { border-color: var(--line); }
+        body.dark .mobile-nav button.active { background: #27344a; color: #a9bcff; }
+        body.dark .notice { border-color: #344766; background: #202c40; color: #c3d0ea; }
+        body.dark .notice.warning { border-color: #63512e; background: #352e21; color: #f3d48f; }
+        body.dark .notice.error { border-color: #633b40; background: #352326; color: #f0b1b5; }
+        body.dark .badge { background: #293650; color: #b6c6ff; }
+        body.dark .network:hover { border-color: #637bb5; background: #222d41; }
+        body.dark .overlay { background: rgba(0, 0, 0, .68); }
         * { box-sizing: border-box; }
         [hidden] { display: none !important; }
         body {
@@ -316,6 +355,7 @@
         </div>
         <div class="top-actions">
             <span id="identity" class="identity">Not signed in</span>
+            <button id="theme-toggle" class="btn outline small" type="button" aria-pressed="false">Dark mode</button>
             <button id="login-button" class="btn small">Sign in</button>
         </div>
     </header>
@@ -374,6 +414,7 @@
 
             <section class="page" id="page-internet" data-page="internet">
                 <div class="page-heading"><h1>Internet connection</h1><p>Choose the Wi-Fi network this repeater connects to.</p></div>
+                <div class="notice warning">USB Ethernet is unavailable in this firmware: no USB Ethernet adapter driver is included in the device kernel. Wi-Fi is the supported upstream connection.</div>
                 <article class="card">
                     <div class="card-head"><h2 class="card-title">Nearby Wi-Fi networks</h2><button id="scan-button" class="btn outline small">Scan networks</button></div>
                     <div id="network-list" class="network-list"><div class="empty">Sign in to scan for Wi-Fi networks.</div></div>
@@ -391,6 +432,11 @@
                                     <option value="dhcp">Automatic (recommended)</option>
                                     <option value="static">Static IP address</option>
                                 </select>
+                            </div>
+                            <div id="dns-settings" class="field full">
+                                <label for="dns-server">DNS server for this repeater and hotspot devices</label>
+                                <input id="dns-server" inputmode="decimal" autocomplete="off" placeholder="8.8.8.8">
+                                <span class="card-note">Use an IPv4 address. This DNS server is used by OpenFi and devices connected to its hotspot.</span>
                             </div>
                             <div id="static-fields" class="field full form-grid" hidden>
                                 <div class="field"><label for="ip-addr">IP address</label><input id="ip-addr" inputmode="decimal" placeholder="192.168.1.50"></div>
@@ -456,6 +502,18 @@
                 <article class="card" style="margin-top:18px">
                     <div class="card-head"><h2 class="card-title">Device controls</h2></div>
                     <p class="help">Restart the repeater if you need to apply a system-level change.</p>
+                    <form id="device-options-form">
+                        <div class="divider"></div>
+                        <h3 class="card-title">Status LEDs</h3>
+                        <div class="field"><label class="check"><input id="power-led" type="checkbox"> Power / battery LED</label></div>
+                        <div class="field"><label class="check"><input id="wifi-led" type="checkbox"> Hotspot Wi-Fi LED</label></div>
+                        <div class="field"><label class="check"><input id="rssi-led" type="checkbox"> Upstream signal LED</label></div>
+                        <div class="divider"></div>
+                        <h3 class="card-title">Power saving</h3>
+                        <div class="field"><label class="check"><input id="power-save" type="checkbox"> Reduce background CPU wakeups</label></div>
+                        <p class="help">Slows status LED and suspend-check polling. Wi-Fi power management is unchanged; this does not increase free memory.</p>
+                        <div class="actions"><button id="save-device-options" class="btn" type="submit">Save device options</button></div>
+                    </form>
                     <div id="reboot-notice" class="notice warning" role="status" hidden></div>
                     <button id="reboot-button" class="btn danger" type="button">Restart device</button>
                 </article>
@@ -495,6 +553,8 @@
     let activePage = 'dashboard';
     let lastApplyState = 'idle';
     let toastTimer;
+    let powerSaveEnabled = false;
+    let statusRefreshTimer;
 
     const $ = id => document.getElementById(id);
     const setText = (id, value) => { $(id).textContent = value == null || value === '' ? '—' : value; };
@@ -505,6 +565,12 @@
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => toast.classList.remove('show'), 4200);
     };
+    function setTheme(dark) {
+        document.body.classList.toggle('dark', dark);
+        $('theme-toggle').textContent = dark ? 'Light mode' : 'Dark mode';
+        $('theme-toggle').setAttribute('aria-pressed', String(dark));
+        localStorage.setItem('openfi-theme', dark ? 'dark' : 'light');
+    }
     const headersWithAuth = headers => {
         const result = new Headers(headers || {});
         if (credentials) result.set('Authorization', 'Basic ' + btoa(credentials.username + ':' + credentials.password));
@@ -649,7 +715,14 @@
             if (document.activeElement !== $('ap-ssid') && data.ap_ssid) $('ap-ssid').value = data.ap_ssid;
             if (data.ip_mode) $('ip-mode').value = data.ip_mode;
             $('ip-settings').hidden = !isAdmin;
+            $('dns-settings').hidden = !isAdmin;
             $('static-fields').hidden = !isAdmin || $('ip-mode').value !== 'static';
+            if (document.activeElement !== $('dns-server') && data.dns_server) $('dns-server').value = data.dns_server;
+            $('power-led').checked = data.power_led !== 0;
+            $('wifi-led').checked = data.wifi_led !== 0;
+            $('rssi-led').checked = data.rssi_led !== 0;
+            $('power-save').checked = data.power_save === 1;
+            powerSaveEnabled = data.power_save === 1;
             if (data.ip_addr) $('ip-addr').value = data.ip_addr;
             if (data.netmask) $('netmask').value = data.netmask;
             if (data.gateway) $('gateway').value = data.gateway;
@@ -657,6 +730,13 @@
         } catch (error) {
             $('refresh-label').textContent = error.message;
         }
+    }
+    function scheduleStatusRefresh() {
+        clearTimeout(statusRefreshTimer);
+        statusRefreshTimer = setTimeout(async () => {
+            if (!document.hidden) await updateStatus();
+            scheduleStatusRefresh();
+        }, powerSaveEnabled ? 60000 : 15000);
     }
     function renderClients(clients) {
         const list = $('clients');
@@ -866,6 +946,8 @@
     }
 
     renderMenu();
+    setTheme(localStorage.getItem('openfi-theme') === 'dark');
+    $('theme-toggle').addEventListener('click', () => setTheme(!document.body.classList.contains('dark')));
     $('login-button').addEventListener('click', () => credentials ? (signedOut(), showToast('Signed out.')) : openLogin());
     $('cancel-login').addEventListener('click', closeLogin);
     $('login-overlay').addEventListener('click', event => { if (event.target === $('login-overlay')) closeLogin(); });
@@ -893,12 +975,23 @@
             open_network: $('open-network').checked ? 'true' : 'false'
         };
         if (isAdmin) {
+            payload.dns_server = $('dns-server').value.trim();
             payload.ip_mode = $('ip-mode').value;
             payload.ip_addr = $('ip-addr').value;
             payload.netmask = $('netmask').value;
             payload.gateway = $('gateway').value;
         }
         submitSettings('/cgi-bin/save', payload, $('save-upstream'), 'Saving…', 'Network settings saved. OpenFi will restart in about 30 seconds.');
+    });
+    $('device-options-form').addEventListener('submit', event => {
+        event.preventDefault();
+        const payload = {
+            power_led: $('power-led').checked ? '1' : '0',
+            wifi_led: $('wifi-led').checked ? '1' : '0',
+            rssi_led: $('rssi-led').checked ? '1' : '0',
+            power_save: $('power-save').checked ? '1' : '0'
+        };
+        submitSettings('/cgi-bin/save', payload, $('save-device-options'), 'Saving…', 'Device options saved. OpenFi will restart in about 30 seconds.');
     });
     $('hotspot-form').addEventListener('submit', event => {
         event.preventDefault();
@@ -965,8 +1058,7 @@
             showToast(error.message);
         }
     });
-    updateStatus();
-    setInterval(updateStatus, 15000);
+    updateStatus().then(scheduleStatusRefresh);
 })();
 </script>
 </body>

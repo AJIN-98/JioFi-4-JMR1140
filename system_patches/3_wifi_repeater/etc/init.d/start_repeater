@@ -3,6 +3,7 @@
 # OpenFi 4 AP+STA Wi-Fi Repeater Startup Script
 
 . /usr/lib/repeater_battery.sh
+. /usr/lib/repeater_options.sh
 
 set_led_brightness() {
     LED_NAME="$1"
@@ -55,6 +56,7 @@ reset_settings_for_firmware_upgrade() {
         /data/wpa_supplicant.conf \
         /data/hostapd.conf \
         /data/ip_config.conf \
+        /data/repeater-options.conf \
         /data/repeater_users.db \
         /data/repeater-httpd.conf
     if [ "$?" -ne 0 ]; then
@@ -75,6 +77,14 @@ case "$1" in
   start)
     if ! reset_settings_for_firmware_upgrade; then
         exit 1
+    fi
+    repeater_load_options
+    IP_MODE="dhcp"
+    if [ -f "/data/ip_config.conf" ]; then
+        . /data/ip_config.conf
+    fi
+    if [ "$IP_MODE" = "static" ]; then
+        printf 'nameserver %s\n' "$DNS_SERVER" > /etc/resolv.conf
     fi
     rmdir /data/repeater-reboot.lock 2>/dev/null
     echo "=== Starting OpenFi Wi-Fi Repeater ==="
@@ -127,7 +137,7 @@ case "$1" in
             route add default gw "$GATEWAY" wlan0
         else
             # Default to DHCP client
-            udhcpc -i wlan0 -s /etc/udhcpc.d/50default -b &
+            udhcpc -i wlan0 -s /usr/lib/repeater_udhcpc.sh -b &
         fi
     ) &
     
@@ -143,7 +153,7 @@ case "$1" in
     brctl delif bridge0 wlan1 2>/dev/null || true
     ifconfig wlan1 192.168.224.1 netmask 255.255.255.0
     kill $(cat /tmp/dnsmasq_wlan1.pid 2>/dev/null) 2>/dev/null
-    dnsmasq --dhcp-authoritative --pid-file=/tmp/dnsmasq_wlan1.pid --dhcp-leasefile=/tmp/dnsmasq_wlan1.leases -u root -i wlan1 -z --dhcp-range=wlan1,192.168.224.20,192.168.224.60,255.255.255.0,12h --dhcp-option=6,8.8.8.8,1.1.1.1
+    dnsmasq --dhcp-authoritative --no-resolv --server="$DNS_SERVER" --pid-file=/tmp/dnsmasq_wlan1.pid --dhcp-leasefile=/tmp/dnsmasq_wlan1.leases -u root -i wlan1 -z --dhcp-range=wlan1,192.168.224.20,192.168.224.60,255.255.255.0,12h --dhcp-option=6,"$DNS_SERVER"
     
     # 10. Configure IP forwarding and NAT
     echo 1 > /proc/sys/net/ipv4/ip_forward
@@ -163,23 +173,27 @@ case "$1" in
     
     # 12. Start background LED indicator manager
     (
-        echo none > /sys/class/leds/rssi_r/trigger 2>/dev/null
-        echo none > /sys/class/leds/rssi_g/trigger 2>/dev/null
-        echo none > /sys/class/leds/rssi_b/trigger 2>/dev/null
-        echo none > /sys/class/leds/wifi_r/trigger 2>/dev/null
-        echo none > /sys/class/leds/wifi_g/trigger 2>/dev/null
-        echo none > /sys/class/leds/wifi_b/trigger 2>/dev/null
+        for LED_NAME in rssi_r rssi_g rssi_b wifi_r wifi_g wifi_b; do
+            echo none > "/sys/class/leds/$LED_NAME/trigger" 2>/dev/null
+        done
+        [ "$POWER_SAVE" = "1" ] && LED_INTERVAL=30 || LED_INTERVAL=5
         LAST_BATTERY_LED_STATE=""
         
         while true; do
             repeater_battery_read
             BATTERY_LED_STATE=$(repeater_battery_led_state "$BATT_STATUS" "$BATT_LEVEL")
             if [ "$BATTERY_LED_STATE" != "$LAST_BATTERY_LED_STATE" ]; then
-                repeater_battery_set_power_led "$BATT_STATUS" "$BATT_LEVEL"
+                repeater_battery_set_power_led "$BATT_STATUS" "$BATT_LEVEL" "$POWER_LED"
                 LAST_BATTERY_LED_STATE="$BATTERY_LED_STATE"
             fi
 
             # --- Update RSSI LED (Upstream wlan0 connection quality) ---
+            if [ "$RSSI_LED" != "1" ]; then
+                for LED_NAME in rssi_r rssi_g rssi_b; do
+                    echo none > "/sys/class/leds/$LED_NAME/trigger" 2>/dev/null
+                    set_led_brightness "$LED_NAME" 0
+                done
+            else
             IP=$(ifconfig wlan0 2>/dev/null | grep 'inet addr:')
             if [ -n "$IP" ]; then
                 QUAL=$(cat /proc/net/wireless 2>/dev/null | grep wlan0 | awk '{print $3}' | cut -d. -f1)
@@ -214,8 +228,15 @@ case "$1" in
                 set_led_brightness rssi_g 0
                 set_led_brightness rssi_b 0
             fi
+            fi
             
             # --- Update Wi-Fi LED (Local wlan1 hotspot state & clients) ---
+            if [ "$WIFI_LED" != "1" ]; then
+                for LED_NAME in wifi_r wifi_g wifi_b; do
+                    echo none > "/sys/class/leds/$LED_NAME/trigger" 2>/dev/null
+                    set_led_brightness "$LED_NAME" 0
+                done
+            else
             echo none > /sys/class/leds/wifi_r/trigger 2>/dev/null
             echo none > /sys/class/leds/wifi_g/trigger 2>/dev/null
             echo none > /sys/class/leds/wifi_b/trigger 2>/dev/null
@@ -239,8 +260,9 @@ case "$1" in
                 set_led_brightness wifi_g 0
                 set_led_brightness wifi_b 0
             fi
+            fi
             
-            sleep 5
+            sleep "$LED_INTERVAL"
         done
     ) &
     echo $! > /var/run/repeater_leds.pid
@@ -248,13 +270,19 @@ case "$1" in
     # 13. Start background suspend-resume watchdog
     (
         # Wait a bit on initial boot
+        [ "$POWER_SAVE" = "1" ] && WATCHDOG_INTERVAL=15 || WATCHDOG_INTERVAL=5
         sleep 20
         while true; do
             BEFORE=$(date +%s)
-            sleep 5
+            sleep "$WATCHDOG_INTERVAL"
             AFTER=$(date +%s)
             ELAPSED=$((AFTER - BEFORE))
-            if [ $ELAPSED -gt 15 ]; then
+            if [ "$POWER_SAVE" = "1" ]; then
+                SUSPEND_THRESHOLD=30
+            else
+                SUSPEND_THRESHOLD=15
+            fi
+            if [ "$ELAPSED" -gt "$SUSPEND_THRESHOLD" ]; then
                 echo "=== Suspend-Resume Detected ($ELAPSED sec) ===" > /dev/kmsg
                 (
                     echo "Re-initializing repeater interfaces on wake-up..." > /dev/kmsg
@@ -285,7 +313,7 @@ case "$1" in
                         ifconfig wlan0 "$IP_ADDR" netmask "$NETMASK"
                         route add default gw "$GATEWAY" wlan0
                     else
-                        udhcpc -i wlan0 -s /etc/udhcpc.d/50default -b &
+                        udhcpc -i wlan0 -s /usr/lib/repeater_udhcpc.sh -b &
                     fi
                     
                     # Restart hostapd AP
@@ -298,7 +326,7 @@ case "$1" in
                     # Restart DHCP server
                     brctl delif bridge0 wlan1 2>/dev/null || true
                     ifconfig wlan1 192.168.224.1 netmask 255.255.255.0
-                    dnsmasq --dhcp-authoritative --pid-file=/tmp/dnsmasq_wlan1.pid --dhcp-leasefile=/tmp/dnsmasq_wlan1.leases -u root -i wlan1 -z --dhcp-range=wlan1,192.168.224.20,192.168.224.60,255.255.255.0,12h --dhcp-option=6,8.8.8.8,1.1.1.1
+                    dnsmasq --dhcp-authoritative --no-resolv --server="$DNS_SERVER" --pid-file=/tmp/dnsmasq_wlan1.pid --dhcp-leasefile=/tmp/dnsmasq_wlan1.leases -u root -i wlan1 -z --dhcp-range=wlan1,192.168.224.20,192.168.224.60,255.255.255.0,12h --dhcp-option=6,"$DNS_SERVER"
                     
                     # Reconfigure NAT
                     echo 1 > /proc/sys/net/ipv4/ip_forward

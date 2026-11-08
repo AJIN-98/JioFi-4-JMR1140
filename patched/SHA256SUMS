@@ -3,3 +3,4 @@ b933d5a76ad5696e63caa30621a1774efb887eb6b1ceff8f4698534e79012ca3  patched/mdm960
 6624fac352523664ff29266e0e48410584f3b7ee9d75a981e74934d50d62788f  patched/mdm9607-sysfs-adb-shelllink-v2.ubi
 ab2f9d78418f8463196af007ae629ed343ba8c7e8d6fc56f3cf9bba20e1f6071  patched/mdm9607-sysfs-unlocked-apn-adb.ubi
 51fdade3aa4f316666367d085e8b989bd22d0c7c523486fa3314e1f7bef56755  patched/rtl8189es-custom.ko
+68e703da2fd27ca14a63ff2fe5c245d9dd6798b2831d20f92e360202fa9ee0d5  patched/mdm9607-sysfs-repeater-openfi-v7.ubi

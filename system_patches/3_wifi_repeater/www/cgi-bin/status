@@ -39,6 +39,8 @@ fi
 
 . /usr/lib/repeater_battery.sh
 repeater_battery_read
+. /usr/lib/repeater_options.sh
+repeater_load_options
 
 if [ -z "$BATT_LEVEL" ]; then
     BATT_LEVEL="100"
@@ -81,4 +83,4 @@ if [ -f "$LEASE_FILE" ]; then
     done < "$LEASE_FILE"
 fi
 
-echo "{\"connected\":$CONNECTED,\"ssid\":\"$SSID\",\"signal\":$SIGNAL,\"ip\":\"$IP\",\"ap_ssid\":\"$AP_SSID\",\"ip_mode\":\"$IP_MODE\",\"ip_addr\":\"$IP_ADDR\",\"netmask\":\"$NETMASK\",\"gateway\":\"$GATEWAY\",\"batt_level\":$BATT_LEVEL,\"batt_status\":\"$BATT_STATUS\",\"uptime_seconds\":$UPTIME_SECONDS,\"memory_available\":\"${MEMORY_MB} MB\",\"apply_state\":\"$APPLY_STATE\",\"clients\":[$CLIENTS]}"
+echo "{\"connected\":$CONNECTED,\"ssid\":\"$SSID\",\"signal\":$SIGNAL,\"ip\":\"$IP\",\"ap_ssid\":\"$AP_SSID\",\"ip_mode\":\"$IP_MODE\",\"ip_addr\":\"$IP_ADDR\",\"netmask\":\"$NETMASK\",\"gateway\":\"$GATEWAY\",\"dns_server\":\"$DNS_SERVER\",\"power_led\":$POWER_LED,\"wifi_led\":$WIFI_LED,\"rssi_led\":$RSSI_LED,\"power_save\":$POWER_SAVE,\"batt_level\":$BATT_LEVEL,\"batt_status\":\"$BATT_STATUS\",\"uptime_seconds\":$UPTIME_SECONDS,\"memory_available\":\"${MEMORY_MB} MB\",\"apply_state\":\"$APPLY_STATE\",\"clients\":[$CLIENTS]}"

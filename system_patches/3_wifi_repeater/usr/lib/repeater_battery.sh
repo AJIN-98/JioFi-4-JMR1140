@@ -103,9 +103,10 @@ repeater_battery_set_led_channel() {
 repeater_battery_set_power_led() {
     STATUS="$1"
     LEVEL="$2"
+    ENABLED="${3:-1}"
     [ -d /sys/class/leds/pwr_r ] || return 0
 
-    if [ "$STATUS" = "No Battery (USB Powered)" ]; then
+    if [ "$ENABLED" != "1" ] || [ "$STATUS" = "No Battery (USB Powered)" ]; then
         RED=0
         GREEN=0
         BLUE=0

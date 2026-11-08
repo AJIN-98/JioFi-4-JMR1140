@@ -72,6 +72,19 @@ All images here are built from the original stock firmware (`firmware/mdm9607-sy
   - Fixed battery CGI (correct sysfs path + µV→mV conversion)
   - jiofetch system info tool (`/usr/bin/jiofetch`)
 
+### `mdm9607-sysfs-repeater-openfi-v7.ubi` ⭐ Latest OpenFi Repeater
+- **Type:** OpenFi Wi-Fi Repeater + SSH + Busybox
+- **Based on:** `mdm9607-sysfs-repeater-patched.ubi`
+- **SHA-256:** `68e703da2fd27ca14a63ff2fe5c245d9dd6798b2831d20f92e360202fa9ee0d5`
+- **Status:** ✅ Built and extracted for content verification; v7 options need device testing
+- **Build script:** `system_patches/3_wifi_repeater/build_repeater_ssh_busybox_image.sh`
+- **Changes:**
+  - Admin-configurable DNS for the repeater and hotspot clients
+  - Independent Power/Battery, Wi-Fi, and RSSI LED controls
+  - Optional low-wakeup power-saving mode and persistent dark theme
+  - Resets saved network and account settings once when upgrading from v6
+  - USB Ethernet is unsupported without a compatible kernel driver
+
 ---
 
 ## 🔌 Flashing
